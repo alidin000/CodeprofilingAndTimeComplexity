@@ -12,8 +12,8 @@ import './App.css';
 import 'primeflex/primeflex.css';
 
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [username, setUsername] = useState('');
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('token'));
+  const [username, setUsername] = useState(localStorage.getItem('username') || '');
 
   const handleLogin = (user) => {
     setIsLoggedIn(true);
@@ -21,6 +21,9 @@ const App = () => {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
+    localStorage.removeItem('username');
     setIsLoggedIn(false);
     setUsername('');
   };

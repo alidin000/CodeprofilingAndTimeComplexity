@@ -1,7 +1,5 @@
-# Use Python as the base image
 FROM python:3.11-slim
 
-# Install required dependencies for Java and C++
 RUN apt-get update && apt-get install -y \
     default-jdk \
     g++ \
@@ -9,18 +7,15 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory for the backend
 WORKDIR /app
 
-# Install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the analyzer code and other Django project files
 COPY . /app/
 
-# Expose the Django development server port
+RUN python manage.py collectstatic --noinput
+
 EXPOSE 8000
 
-# Run migrations and start the Django development server
-CMD ["bash", "-c", "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
+CMD ["bash", "-c", "python manage.py migrate && gunicorn time_complexity_analyzer.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 300"]

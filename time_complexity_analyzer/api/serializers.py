@@ -11,7 +11,10 @@ class CodeSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ('username', 'email', 'password')
+        fields = ('id', 'username', 'email', 'password')
+        extra_kwargs = {
+            'password': {'write_only': True},
+        }
 
     def validate(self, data):
         if 'username' not in data or not data['username']:

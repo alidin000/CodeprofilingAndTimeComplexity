@@ -191,14 +191,10 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
 
   const formatResults = (data, code, language) => {
     const codeLines = code.split("\n");
-    console.log(codeLines);
     const results = codeLines.map((line, index) => {
       const lineNumber = language === "Python" ? index : index + 1;
       const lineInfo = data.lines ? data.lines[lineNumber] : null;
-      console.log(lineNumber, index);
-      console.log(data, language);
-      console.log(lineInfo);
-      
+
       if (lineInfo) {
         const complexity = lineInfo.best_fit ? lineInfo.best_fit.model : "";
         const avgExecTimes = lineInfo.average_exec_times || {};
@@ -218,7 +214,6 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
         avgExecTimes: {},
       };
     });
-    console.log(results.join("\n") );
     const functionComplexity =
       data.function && data.function.best_fit
         ? data.function.best_fit.model

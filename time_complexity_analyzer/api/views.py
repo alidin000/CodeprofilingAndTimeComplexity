@@ -3,13 +3,15 @@ import os
 import re
 
 import numpy as np
-from rest_framework import viewsets, permissions
+from django.contrib.auth import authenticate
+from rest_framework import permissions, status, viewsets
+from rest_framework.decorators import api_view, permission_classes as perm_classes
+from rest_framework.exceptions import NotFound
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+
 from api.models import Code
 from api.serializers import *
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth import authenticate, login
-from rest_framework.decorators import api_view
 
 from analyzer.analyzer import instrument_java_function, run_java_program, write_and_compile_java
 from analyzer.analyzer_python import run_instrumented_python_code
@@ -43,6 +45,7 @@ def extract_call_template(user_code, language):
     return call_template
 
 @api_view(['POST'])
+@perm_classes([permissions.IsAuthenticated])
 def analyse_code(request):
     code_data = request.data
     code_serializer = CodeSerializer(data=code_data)
@@ -97,7 +100,10 @@ def analyse_code(request):
 
 
 @api_view(['GET'])
+@perm_classes([permissions.IsAuthenticated])
 def get_code_history(request, username):
+    if request.user.username != username:
+        return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
     codes = Code.objects.filter(username=username).order_by('-created_at')
     serializer = CodeSerializer(codes, many=True)
     return Response(serializer.data)
@@ -179,16 +185,15 @@ def handle_python_code(user_code, call_template):
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-from rest_framework.exceptions import NotFound, ValidationError
 
 class CodeViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     queryset = Code.objects.all()
     serializer_class = CodeSerializer
 
     def list(self, request):
-        query_set = self.queryset
-        serializer = self.serializer_class(query_set, many=True)
+        codes = self.queryset.filter(username=request.user.username)
+        serializer = self.serializer_class(codes, many=True)
         return Response(serializer.data)
 
     def create(self, request):
@@ -209,7 +214,7 @@ class CodeViewSet(viewsets.ViewSet):
 
     def update(self, request, pk=None):
         try:
-            code = self.queryset.get(id=pk)
+            code = self.queryset.get(id=pk, username=request.user.username)
         except Code.DoesNotExist:
             raise NotFound("Code not found.")
         serializer = self.serializer_class(code, data=request.data)
@@ -221,7 +226,7 @@ class CodeViewSet(viewsets.ViewSet):
 
     def destroy(self, request, pk=None):
         try:
-            code = self.queryset.get(id=pk)
+            code = self.queryset.get(id=pk, username=request.user.username)
         except Code.DoesNotExist:
             raise NotFound("Code not found.")
         code.delete()
@@ -229,13 +234,16 @@ class CodeViewSet(viewsets.ViewSet):
 
 
 class UserViewSet(viewsets.ViewSet):
-    permission_classes = [permissions.AllowAny]
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+    def get_permissions(self):
+        if self.action in ('create', 'login'):
+            return [permissions.AllowAny()]
+        return [permissions.IsAuthenticated()]
+
     def list(self, request):
-        query_set = self.queryset
-        serializer = self.serializer_class(query_set, many=True)
+        serializer = self.serializer_class([request.user], many=True)
         return Response(serializer.data)
 
     def create(self, request):
@@ -247,19 +255,15 @@ class UserViewSet(viewsets.ViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def retrieve(self, request, pk=None):
-        try:
-            user = self.queryset.get(id=pk)
-        except User.DoesNotExist:
-            raise NotFound("User not found.")
-        serializer = self.serializer_class(user)
+        if str(request.user.id) != str(pk):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.serializer_class(request.user)
         return Response(serializer.data)
 
     def update(self, request, pk=None):
-        try:
-            user = self.queryset.get(id=pk)
-        except User.DoesNotExist:
-            raise NotFound("User not found.")
-        serializer = self.serializer_class(user, data=request.data)
+        if str(request.user.id) != str(pk):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.serializer_class(request.user, data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data)
@@ -267,11 +271,9 @@ class UserViewSet(viewsets.ViewSet):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def destroy(self, request, pk=None):
-        try:
-            user = self.queryset.get(id=pk)
-        except User.DoesNotExist:
-            raise NotFound("User not found.")
-        user.delete()
+        if str(request.user.id) != str(pk):
+            return Response({"detail": "Not allowed."}, status=status.HTTP_403_FORBIDDEN)
+        request.user.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def login(self, request):
@@ -284,8 +286,12 @@ class UserViewSet(viewsets.ViewSet):
         user = authenticate(request, username=username, password=password)
 
         if user is not None:
-            login(request, user)
+            refresh = RefreshToken.for_user(user)
             serializer = self.serializer_class(user)
-            return Response({"message": "Successfully logged in", "user": serializer.data})
+            return Response({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": serializer.data,
+            })
         else:
             return Response({"detail": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)

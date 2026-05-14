@@ -19,6 +19,9 @@ const Login = ({ handleLogin }) => {
       });
 
       if (response.status === 200) {
+        localStorage.setItem('token', response.data.access);
+        localStorage.setItem('refreshToken', response.data.refresh);
+        localStorage.setItem('username', username);
         handleLogin(username);
         navigate('/');
       } else {
