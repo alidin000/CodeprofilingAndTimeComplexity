@@ -1,3 +1,6 @@
+import ast
+import logging
+
 import numpy as np
 from scipy.optimize import least_squares
 from scipy.special import factorial
@@ -146,12 +149,12 @@ def parse_output_file(file_path):
                         exec_time = 10
                     function_exec_times.append(exec_time)
                 except (ValueError, IndexError):
-                    print(f"Warning: Skipping invalid execution time entry: {line}")
+                    logging.warning("Skipping invalid execution time entry: %s", line.strip())
                 continue
 
             if stripped_line.startswith('{') and stripped_line.endswith('}'):
                 try:
-                    exec_times = eval(stripped_line.replace('=', ':'))
+                    exec_times = ast.literal_eval(stripped_line.replace('=', ':'))
                     for line_num, time in exec_times.items():
                         if is_cpp:
                             time = max(time, 10)
@@ -159,7 +162,7 @@ def parse_output_file(file_path):
                             line_exec_times[line_num] = []
                         line_exec_times[line_num].append(time)
                 except (SyntaxError, ValueError):
-                    print(f"Warning: Skipping invalid line execution entry: {line}")
+                    logging.warning("Skipping invalid line execution entry: %s", line.strip())
                 continue
 
     if is_cpp:
@@ -271,11 +274,11 @@ def select_best_fitting_model(x_data, y_data):
                 simplified_name, simplified_params = simplify_model(name, params)
                 best_fit = {'model': simplified_name, 'params': simplified_params, 'rss': rss}
         except Exception as e:
-            print(f"Error fitting model {name}: {e}")
+            logging.warning("Error fitting model %s: %s", name, e)
 
     # If the original logic fails, fallback to recalculation with updated logic
     if best_fit['model'] is None:
-        print("Original logic failed; falling back to updated logic.")
+        logging.info("Original logic failed; falling back to updated logic.")
         if model_scores:
             model_scores.sort(key=lambda x: x[0] + x[1])  # Sort by RSS + penalty
             rss, _, name, params = model_scores[0]

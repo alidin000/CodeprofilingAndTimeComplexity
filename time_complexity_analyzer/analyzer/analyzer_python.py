@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import sys
 
 def run_instrumented_python_code(user_code, number_of_inputs, size_array):
     def extract_function_name(code):
@@ -71,4 +72,4 @@ class Prototype:
     python_file = os.path.join(os.path.dirname(__file__),"python_Prototype.py")
     with open(python_file, "w") as f:
         f.write(instrumented_code)
-    subprocess.run(['python', python_file], capture_output=True, text=True)
+    subprocess.run([sys.executable, python_file], capture_output=True, text=True)

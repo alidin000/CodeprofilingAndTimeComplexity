@@ -118,9 +118,6 @@ int main() {{
                 + f"this->lineInfoTotal[{i}] += std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - this->getLastLineInfo({i})).count();"
             )
 
-        if "for" in trimmed_line:  # Add measurable workload
-            instrumented_line += "\nfor (int j = 0; j < 1000; ++j) { int temp = 0; temp += j; }"
-
         instrumented_user_function += "\n" + instrumented_line
 
     full_cpp_code = cpp_prolog + instrumented_user_function + cpp_epilog

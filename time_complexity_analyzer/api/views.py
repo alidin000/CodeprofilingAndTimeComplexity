@@ -1,6 +1,7 @@
+import logging
 import os
 import re
-from django.shortcuts import render
+
 import numpy as np
 from rest_framework import viewsets, permissions
 from api.models import Code
@@ -46,7 +47,6 @@ def analyse_code(request):
     code_data = request.data
     code_serializer = CodeSerializer(data=code_data)
 
-    print("Incoming data: ", code_serializer.initial_data)
     if code_serializer.is_valid():
         validated_data = code_serializer.validated_data
         saved_code = Code.objects.create(**validated_data)
@@ -85,12 +85,12 @@ def analyse_code(request):
 
                 return analysis_result
             except Exception as e:
-                print("Error during analysis:", e)
+                logging.exception("Error during analysis")
                 return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         else:
             return Response({"error": f"Language '{language}' not supported for analysis."}, status=status.HTTP_400_BAD_REQUEST)
     else:
-        print("Validation errors: ", code_serializer.errors)
+        logging.warning("Validation errors: %s", code_serializer.errors)
         return Response(code_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -121,7 +121,7 @@ def handle_java_code(user_code, call_template):
         best_fits = parse_and_analyze(output_file_paths)
         return Response(best_fits)
     except Exception as e:
-        print("Running didn't work, or reading output file didn't work:", e.args)
+        logging.exception("Java analysis failed")
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -143,17 +143,17 @@ def handle_cpp_code(user_code, call_template):
                 write_and_compile_cpp(cpp_code)
                 run_cpp_program()
             except Exception as e:
-                print(f"Error during C++ compilation/execution for size {size}: {e}")
+                logging.warning("C++ compilation/execution failed for size %d: %s", size, e)
                 continue
 
             if not os.path.exists(output_file_path):
-                print(f"Output file not found for size {size}: {output_file_path}")
+                logging.warning("Output file not found for size %d: %s", size, output_file_path)
                 continue
 
         best_fits = parse_and_analyze(output_file_paths)
         return Response(best_fits)
     except Exception as e:
-        print("Error in handle_cpp_code:", e)
+        logging.exception("C++ analysis failed")
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -175,7 +175,7 @@ def handle_python_code(user_code, call_template):
         best_fits = parse_and_analyze(output_file_paths)
         return Response(best_fits)
     except Exception as e:
-        print("Running didn't work, or reading output file didn't work:", e.args)
+        logging.exception("Python analysis failed")
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -225,7 +225,7 @@ class CodeViewSet(viewsets.ViewSet):
         except Code.DoesNotExist:
             raise NotFound("Code not found.")
         code.delete()
-        return Response({"message": "Code snippet deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class UserViewSet(viewsets.ViewSet):
@@ -272,7 +272,7 @@ class UserViewSet(viewsets.ViewSet):
         except User.DoesNotExist:
             raise NotFound("User not found.")
         user.delete()
-        return Response({"message": "User deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def login(self, request):
         username = request.data.get('username', None)
@@ -286,6 +286,6 @@ class UserViewSet(viewsets.ViewSet):
         if user is not None:
             login(request, user)
             serializer = self.serializer_class(user)
-            return Response(f'successfully logged in :{serializer.data}')
+            return Response({"message": "Successfully logged in", "user": serializer.data})
         else:
-            return Response("Invalid username or password", status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"detail": "Invalid username or password"}, status=status.HTTP_401_UNAUTHORIZED)
