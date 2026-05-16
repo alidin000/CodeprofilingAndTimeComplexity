@@ -2,6 +2,8 @@ import os
 import shutil
 import subprocess
 import tempfile
+import uuid
+from unittest import mock
 from django.test import TestCase
 from django.urls import reverse
 from api.models import Code, UserProfile
@@ -9,9 +11,12 @@ from django.contrib.auth.models import User
 from rest_framework import status
 from rest_framework.test import APIClient
 from api.serializers import CodeSerializer, UserSerializer
+from api.views import extract_call_template, fitting_options_from_request_payload
 from analyzer.analyzer import instrument_java_function, run_java_program, write_and_compile_java
 from analyzer.analyzer_python import run_instrumented_python_code
 from analyzer.analyzer_cpp import instrument_cpp_function, write_and_compile_cpp, run_cpp_program
+from analyzer.static_complexity import analyze_python_static
+from analyzer.static_java_cpp import analyze_cpp_static, analyze_java_static
 
 class APITests(TestCase):
 
@@ -225,6 +230,119 @@ class APITests(TestCase):
         saved_code = Code.objects.get(username=self.user.username, code=data['code'])
         self.assertIsNotNone(saved_code.analysis_result)
 
+    def test_analyse_code_async_start_returns_202(self):
+        def noop_thread(*_a, **_kwargs):
+            t = mock.MagicMock()
+            t.start = mock.MagicMock()
+            return t
+
+        self.client.force_authenticate(user=self.user)
+        url = reverse('analyse-code-async-start')
+        data = {
+            'username': self.user.username,
+            'code': 'def example(arr):\n    return sum(arr)',
+            'language': 'Python',
+            'time_complexity': 'O(1)',
+            'benchmark_profile': 'random',
+        }
+        with mock.patch('api.views.threading.Thread', side_effect=noop_thread):
+            response = self.client.post(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
+        self.assertIn('job_id', response.data)
+        uuid.UUID(str(response.data['job_id']))
+
+    def test_analyse_code_async_status_unknown_job(self):
+        self.client.force_authenticate(user=self.user)
+        jid = str(uuid.uuid4())
+        url = reverse('analyse-code-async-status', kwargs={'job_id': jid})
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_analyse_code_async_cancel_unknown_job(self):
+        self.client.force_authenticate(user=self.user)
+        jid = str(uuid.uuid4())
+        url = reverse('analyse-code-async-cancel', kwargs={'job_id': jid})
+        response = self.client.post(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_analyse_code_async_poll_until_done(self):
+        """Run the worker inline so SQLite TestCase DB is not contended by a background thread."""
+
+        def immediate_thread(*_a, **kwargs):
+            target = kwargs["target"]
+            t_args = kwargs.get("args", ())
+            t = mock.MagicMock()
+
+            def run_now():
+                target(*t_args)
+
+            t.start = run_now
+            return t
+
+        self.client.force_authenticate(user=self.user)
+        start_url = reverse('analyse-code-async-start')
+        data = {
+            'username': self.user.username,
+            'code': 'def example(arr):\n    return sum(arr)',
+            'language': 'Python',
+            'time_complexity': 'O(1)',
+            'benchmark_profile': 'random',
+        }
+        with mock.patch('api.views.threading.Thread', side_effect=immediate_thread):
+            r = self.client.post(start_url, data, format='json')
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED)
+        job_id = r.data['job_id']
+        status_url = reverse('analyse-code-async-status', kwargs={'job_id': job_id})
+        s = self.client.get(status_url)
+        self.assertEqual(s.status_code, status.HTTP_200_OK)
+        self.assertEqual(s.data.get('status'), 'done')
+        self.assertIn('result', s.data)
+        self.assertIsNotNone(s.data['result'])
+        self.assertIn('code_id', s.data)
+        self.assertIn('fit_static_alignment', s.data['result'])
+        saved_code = Code.objects.get(pk=s.data['code_id'])
+        self.assertIsNotNone(saved_code.analysis_result)
+
+    def test_analyse_code_async_cancel_requested(self):
+        """Cancel is accepted for a known job; worker is not started (avoids stray threads under SQLite)."""
+
+        def noop_thread(*_a, **_kwargs):
+            t = mock.MagicMock()
+            t.start = mock.MagicMock()
+            return t
+
+        self.client.force_authenticate(user=self.user)
+        start_url = reverse('analyse-code-async-start')
+        data = {
+            'username': self.user.username,
+            'code': 'def slow(arr):\n'
+            '    s = 0\n'
+            '    for x in arr:\n'
+            '        s += x\n'
+            '    return s\n',
+            'language': 'Python',
+            'time_complexity': 'O(1)',
+            'benchmark_profile': 'random',
+        }
+        with mock.patch('api.views.threading.Thread', side_effect=noop_thread):
+            r = self.client.post(start_url, data, format='json')
+        self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED)
+        job_id = r.data['job_id']
+        cancel_url = reverse('analyse-code-async-cancel', kwargs={'job_id': job_id})
+        c = self.client.post(cancel_url)
+        self.assertEqual(c.status_code, status.HTTP_200_OK)
+        self.assertTrue(c.data.get('ok'))
+
+
+class FittingOptionsTests(TestCase):
+    def test_teaching_mode_from_json_body(self):
+        o = fitting_options_from_request_payload({'teaching_mode': 'true'})
+        self.assertIn('model_allowlist', o)
+        self.assertGreater(len(o['model_allowlist']), 2)
+
+    def test_bic_gamma_from_body(self):
+        o = fitting_options_from_request_payload({'bic_gamma': 1.5})
+        self.assertEqual(o.get('bic_gamma'), 1.5)
 
 
 class SerializerTests(TestCase):
@@ -276,8 +394,6 @@ class SerializerTests(TestCase):
 class UtilityFunctionTests(TestCase):
 
     def test_extract_call_template(self):
-        from api.views import extract_call_template
-
         python_code = 'def example(arr):\n    return sum(arr)'
         call_template = extract_call_template(python_code, 'python')
         self.assertEqual(call_template, 'example(generate_input(size))')
@@ -290,6 +406,68 @@ class UtilityFunctionTests(TestCase):
         call_template = extract_call_template(cpp_code, 'cpp')
         self.assertEqual(call_template, 'p.example($$size$$);')
 
+    def test_static_per_line_nested(self):
+        code = "def f(arr):\n    for x in arr:\n        for y in arr:\n            pass\n"
+        payload = analyze_python_static(code)
+        self.assertTrue(payload['ok'])
+        self.assertEqual(payload.get('per_line_indexing'), '0_based_dedented_body')
+        self.assertIn('per_line', payload)
+        deepest = max(v['max_loop_nesting'] for v in payload['per_line'].values())
+        self.assertGreaterEqual(deepest, 2)
+        deep_lines = [k for k, v in payload['per_line'].items() if v['max_loop_nesting'] >= 2]
+        self.assertTrue(deep_lines)
+        for k in deep_lines:
+            self.assertEqual(payload['per_line'][k]['structural_bound_model'], 'quadratic')
+
+    def test_java_static_nested_and_per_line(self):
+        code = (
+            "public int sum(int[] arr) {\n"
+            "    int s = 0;\n"
+            "    for (int i = 0; i < arr.length; i++) {\n"
+            "        for (int j = 0; j < arr.length; j++) {\n"
+            "            s += arr[i];\n"
+            "        }\n"
+            "    }\n"
+            "    return s;\n"
+            "}\n"
+        )
+        p = analyze_java_static(code)
+        self.assertTrue(p['ok'])
+        self.assertEqual(p['language'], 'java')
+        self.assertGreaterEqual(p['max_loop_nesting'], 2)
+        self.assertEqual(p['per_line_indexing'], '1_based_stripped_body')
+        self.assertIn('4', p['per_line'])
+
+    def test_cpp_static_basic(self):
+        code = (
+            "void scan(std::vector<int>& arr) {\n"
+            "    for (size_t i = 0; i < arr.size(); ++i) {\n"
+            "        arr[i] *= 2;\n"
+            "    }\n"
+            "}\n"
+        )
+        p = analyze_cpp_static(code)
+        self.assertTrue(p['ok'])
+        self.assertEqual(p['language'], 'cpp')
+        self.assertGreaterEqual(p['max_loop_nesting'], 1)
+
+    def test_java_static_nested_braceless(self):
+        code = (
+            "public int sum(int[] arr) {\n"
+            "    int s = 0;\n"
+            "    for (int i = 0; i < arr.length; i++)\n"
+            "        for (int j = 0; j < arr.length; j++)\n"
+            "            s += arr[i];\n"
+            "    return s;\n"
+            "}\n"
+        )
+        p = analyze_java_static(code)
+        self.assertTrue(p['ok'])
+        self.assertGreaterEqual(
+            p['max_loop_nesting'],
+            2,
+            "Braceless nested fors should yield nesting >= 2 when tree-sitter is installed.",
+        )
 
 
 class InstrumentedCodeTests(TestCase):

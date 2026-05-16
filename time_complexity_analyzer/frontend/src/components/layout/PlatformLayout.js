@@ -2,7 +2,6 @@ import React from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Box } from '@mui/material';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import SidebarNav from './SidebarNav';
 import TopChrome from './TopChrome';
 import Footer from '../Footer';
 import CommandPalette from '../CommandPalette';
@@ -26,33 +25,31 @@ export default function PlatformLayout() {
       };
 
   return (
-    <Box sx={{ display: 'flex', flex: 1, minHeight: '100vh', width: '100%', position: 'relative' }}>
-      {/* Desktop: orbital dock — fixed, does not consume flex width */}
-      <Box
-        sx={{
-          display: { xs: 'none', md: 'flex' },
-          position: 'fixed',
-          left: 14,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          zIndex: 25,
-          pointerEvents: 'auto',
-        }}
-      >
-        <SidebarNav variant="floating" />
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: '100vh',
+        width: '100%',
+        position: 'relative',
+      }}
+    >
+      <Box sx={{ flexShrink: 0, width: '100%', zIndex: (t) => t.zIndex.appBar }}>
+        <TopChrome />
       </Box>
 
       <Box
         sx={{
+          position: 'relative',
+          zIndex: 3,
           flex: 1,
           display: 'flex',
           flexDirection: 'column',
           minWidth: 0,
-          minHeight: '100vh',
-          pl: { xs: 0, md: '92px' },
+          minHeight: 0,
         }}
       >
-        <TopChrome />
         <Box
           component="main"
           sx={{

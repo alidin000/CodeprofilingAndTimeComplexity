@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
-  AppBar,
-  Toolbar,
   Box,
+  Stack,
   IconButton,
   Typography,
   Tooltip,
@@ -33,8 +32,11 @@ import CalculateOutlined from '@mui/icons-material/CalculateOutlined';
 import MenuBookOutlined from '@mui/icons-material/MenuBookOutlined';
 import InfoOutlined from '@mui/icons-material/InfoOutlined';
 import LoginOutlined from '@mui/icons-material/LoginOutlined';
+import PersonAddAltOutlined from '@mui/icons-material/PersonAddAltOutlined';
+import logo from '../../assets/logo.png';
 import { usePlatform } from '../../context/PlatformContext';
 import SidebarNav from './SidebarNav';
+import { dockBtnSx, floatingGlassShellSx } from './navDockStyles';
 
 function breadcrumbLabel(pathname) {
   if (pathname === '/') return 'Analyzer';
@@ -73,43 +75,147 @@ export default function TopChrome() {
     setMobileOpen(false);
   };
 
+  const pillNav = () => (
+    <>
+      <Tooltip title="Calculator" placement="bottom">
+        <NavLink to="/" end aria-label="Calculator" style={{ textDecoration: 'none' }}>
+          {({ isActive }) => (
+            <Box sx={dockBtnSx(theme, isActive)} display="flex" alignItems="center" justifyContent="center">
+              <CalculateOutlined fontSize="small" />
+            </Box>
+          )}
+        </NavLink>
+      </Tooltip>
+      <Tooltip title="Learning" placement="bottom">
+        <NavLink to="/learning" aria-label="Learning" style={{ textDecoration: 'none' }}>
+          {({ isActive }) => (
+            <Box sx={dockBtnSx(theme, isActive)} display="flex" alignItems="center" justifyContent="center">
+              <MenuBookOutlined fontSize="small" color={isActive ? 'secondary' : 'inherit'} />
+            </Box>
+          )}
+        </NavLink>
+      </Tooltip>
+      <Tooltip title="About" placement="bottom">
+        <NavLink to="/about-us" aria-label="About" style={{ textDecoration: 'none' }}>
+          {({ isActive }) => (
+            <Box sx={dockBtnSx(theme, isActive)} display="flex" alignItems="center" justifyContent="center">
+              <InfoOutlined fontSize="small" />
+            </Box>
+          )}
+        </NavLink>
+      </Tooltip>
+    </>
+  );
+
   return (
     <>
-      <AppBar
-        position="sticky"
-        elevation={0}
+      <Box
+        component="header"
         sx={{
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          background:
-            theme.palette.mode === 'dark'
-              ? alpha('#020617', 0.75)
-              : alpha('#ffffff', 0.82),
-          backdropFilter: 'blur(16px) saturate(1.5)',
+          position: 'sticky',
+          top: 0,
+          zIndex: theme.zIndex.appBar,
+          width: '100%',
+          py: { xs: 1.25, sm: 1.5 },
+          px: { xs: 0.5, sm: 1 },
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          bgcolor: 'transparent',
+          backgroundImage: 'none',
+          border: 'none',
+          boxShadow: 'none',
         }}
       >
-        <Toolbar sx={{ gap: 1.5, minHeight: 58, py: 0.5 }}>
+        <Box
+          sx={{
+            ...floatingGlassShellSx(theme, { orientation: 'row' }),
+            pointerEvents: 'auto',
+          }}
+        >
           {!isMdUp && (
-            <IconButton edge="start" aria-label="Open menu" onClick={() => setMobileOpen(true)} size="medium">
-              <MenuRounded />
+            <IconButton
+              aria-label="Open menu"
+              onClick={() => setMobileOpen(true)}
+              size="small"
+              sx={{
+                ...dockBtnSx(theme, false),
+                width: 40,
+                height: 40,
+              }}
+            >
+              <MenuRounded fontSize="small" />
             </IconButton>
           )}
 
-          <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, letterSpacing: '0.16em' }}>
+          <Box
+            component="img"
+            src={logo}
+            alt=""
+            sx={{
+              width: 32,
+              height: 'auto',
+              borderRadius: 1,
+              display: { xs: 'none', sm: 'block' },
+              filter: theme.palette.mode === 'dark' ? 'contrast(1.08) saturate(1.1)' : 'none',
+            }}
+          />
+
+          {isMdUp ? pillNav() : null}
+
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{
+              alignSelf: 'stretch',
+              my: 0.5,
+              borderColor: alpha(theme.palette.divider, 0.65),
+              display: { xs: 'none', md: 'block' },
+            }}
+          />
+
+          <Box sx={{ minWidth: 0, maxWidth: { xs: 120, sm: 200 }, px: 0.25 }}>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{
+                fontWeight: 700,
+                letterSpacing: '0.14em',
+                display: { xs: 'none', sm: 'block' },
+                lineHeight: 1,
+              }}
+            >
               WORKSPACE
             </Typography>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.2,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {breadcrumbLabel(location.pathname)}
             </Typography>
           </Box>
+
+          <Divider
+            orientation="vertical"
+            flexItem
+            sx={{ alignSelf: 'stretch', my: 0.5, borderColor: alpha(theme.palette.divider, 0.65) }}
+          />
 
           <Chip
             size="small"
             label="LIVE"
             sx={{
               fontWeight: 800,
-              letterSpacing: '0.12em',
+              letterSpacing: '0.1em',
               borderRadius: 1,
+              height: 26,
               bgcolor: alpha(theme.palette.success.main, 0.15),
               color: 'success.main',
               border: `1px solid ${alpha(theme.palette.success.main, 0.35)}`,
@@ -118,31 +224,24 @@ export default function TopChrome() {
           />
 
           <Tooltip title="Quick actions (⌘K / Ctrl+K)">
-            <Button
-              variant="outlined"
+            <IconButton
               size="small"
-              startIcon={<SearchRounded />}
               onClick={() => setCommandOpen(true)}
-              sx={{
-                borderRadius: 999,
-                px: 2,
-                display: { xs: 'none', sm: 'inline-flex' },
-                borderColor: alpha(theme.palette.text.primary, 0.12),
-                color: 'text.secondary',
-                fontWeight: 700,
-              }}
+              aria-label="Quick actions"
+              sx={{ ...dockBtnSx(theme, false), width: 40, height: 40 }}
             >
-              Quick
-            </Button>
+              <SearchRounded fontSize="small" />
+            </IconButton>
           </Tooltip>
 
           <Tooltip title={colorMode === 'light' ? 'Dark mode' : 'Light mode'}>
             <IconButton
               onClick={toggleColorMode}
               aria-label={colorMode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              sx={{ border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`, borderRadius: 2 }}
+              size="small"
+              sx={{ ...dockBtnSx(theme, false), width: 40, height: 40 }}
             >
-              {colorMode === 'light' ? <DarkMode /> : <LightMode />}
+              {colorMode === 'light' ? <DarkMode fontSize="small" /> : <LightMode fontSize="small" />}
             </IconButton>
           </Tooltip>
 
@@ -151,9 +250,10 @@ export default function TopChrome() {
               <IconButton
                 aria-label="account of current user"
                 onClick={(e) => setAnchorEl(e.currentTarget)}
-                sx={{ border: `1px solid ${alpha(theme.palette.text.primary, 0.12)}`, borderRadius: 2 }}
+                size="small"
+                sx={{ ...dockBtnSx(theme, false), width: 40, height: 40 }}
               >
-                <AccountCircle />
+                <AccountCircle fontSize="small" />
               </IconButton>
               <Menu
                 anchorEl={anchorEl}
@@ -175,18 +275,50 @@ export default function TopChrome() {
               </Menu>
             </>
           ) : (
-            <Button
-              component={NavLink}
-              to="/login"
-              variant="contained"
-              color="primary"
-              sx={{ display: { xs: 'none', sm: 'inline-flex' }, borderRadius: 999, fontWeight: 800 }}
-            >
-              Log in
-            </Button>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Tooltip title="Log in">
+                <Button
+                  component={NavLink}
+                  to="/login"
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  sx={{
+                    borderRadius: 999,
+                    fontWeight: 800,
+                    px: 1.5,
+                    minWidth: 0,
+                    display: { xs: 'none', sm: 'inline-flex' },
+                  }}
+                >
+                  Log in
+                </Button>
+              </Tooltip>
+              <Tooltip title="Sign up">
+                <Button
+                  component={NavLink}
+                  to="/signup"
+                  variant="contained"
+                  color="secondary"
+                  size="small"
+                  aria-label="Sign up"
+                  sx={{
+                    minWidth: 0,
+                    width: 40,
+                    height: 40,
+                    borderRadius: '12px',
+                    p: 0,
+                    boxShadow: `0 6px 20px ${alpha(theme.palette.secondary.main, 0.35)}`,
+                    display: { xs: 'none', sm: 'inline-flex' },
+                  }}
+                >
+                  <PersonAddAltOutlined fontSize="small" />
+                </Button>
+              </Tooltip>
+            </Stack>
           )}
-        </Toolbar>
-      </AppBar>
+        </Box>
+      </Box>
 
       <Drawer anchor="left" open={mobileOpen} onClose={() => setMobileOpen(false)} PaperProps={{ sx: { width: 280 } }}>
         <SidebarNav onNavigate={() => setMobileOpen(false)} />

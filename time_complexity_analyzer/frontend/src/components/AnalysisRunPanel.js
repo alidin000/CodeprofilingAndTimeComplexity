@@ -21,13 +21,14 @@ function formatElapsed(ms) {
 }
 
 /**
- * Full-width status while POST /api/analyse-code/ is in flight.
+ * Full-width status while an analysis job is in flight (async API + polling).
  */
 export default function AnalysisRunPanel({
   phases,
   phaseIndex,
   elapsedMs,
   onCancel,
+  serverHeadline = '',
 }) {
   const theme = useTheme();
 
@@ -56,6 +57,20 @@ export default function AnalysisRunPanel({
             <Typography variant="subtitle1" fontWeight={800} sx={{ fontFamily: theme.typography.h6.fontFamily }}>
               Profiling in progress · {formatElapsed(elapsedMs)}
             </Typography>
+            {serverHeadline ? (
+              <Typography
+                variant="body2"
+                sx={{
+                  mt: 1,
+                  fontWeight: 700,
+                  color: 'secondary.main',
+                  lineHeight: 1.5,
+                  maxWidth: 720,
+                }}
+              >
+                {serverHeadline}
+              </Typography>
+            ) : null}
           </Box>
           <Button
             type="button"

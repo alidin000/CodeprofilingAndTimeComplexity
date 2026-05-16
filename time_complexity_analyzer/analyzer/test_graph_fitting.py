@@ -10,8 +10,9 @@ from analyzer.graph_fitting import (
     parse_and_analyze,
     simplify_model,
     models,
-    time_complexity_notation
+    time_complexity_notation,
 )
+from analyzer.measurement_config import TEACHING_MODEL_ALLOWLIST
 
 class TestGraphFitting(unittest.TestCase):
 
@@ -103,6 +104,9 @@ class TestGraphFitting(unittest.TestCase):
 
         best_fit = results['function']['best_fit']
         self.assertIn(best_fit['model'], time_complexity_notation)
+        self.assertIn('runner_up_model', best_fit)
+        self.assertIn('runner_up_rss', best_fit)
+        self.assertIn('rss_relative_runner_up', best_fit)
 
         self.assertIn('series', results['function'])
         fs = results['function']['series']
@@ -115,10 +119,25 @@ class TestGraphFitting(unittest.TestCase):
         self.assertIsInstance(inst, dict)
         self.assertIn('per_size_aggregation', inst)
         self.assertIn('bic_parameter_penalty_gamma', inst)
+        self.assertIn('bic_ambiguity_margin', inst)
+        self.assertIn('teaching_mode', inst)
+        self.assertFalse(inst.get('teaching_mode'))
+        self.assertIn('bic_gamma_override_requested', inst)
+        self.assertFalse(inst.get('bic_gamma_override_requested'))
         self.assertEqual(inst.get('sizes'), [10, 20])
 
+    def test_parse_and_analyze_teaching_allowlist(self):
+        results = parse_and_analyze(
+            self.mock_file_paths,
+            model_allowlist={'constant', 'linear', 'quadratic'},
+        )
+        inst = results['instrumentation']
+        self.assertTrue(inst['teaching_mode'])
+        self.assertIn('constant', inst['fitting_model_allowlist'])
 
-    def test_inverse_ackermann_model(self):
+
+    def test_teaching_allowlist_subset_of_models(self):
+        self.assertTrue(TEACHING_MODEL_ALLOWLIST.issubset(set(models.keys())))
         """Ultra-slow growth should map to an inverse-Ackermann-like or near-tied log family (BIC)."""
         import numpy as np
 

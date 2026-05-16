@@ -99,6 +99,17 @@ const DEFAULT_CODES = {
   }`,
 };
 
+const POLL_MS = 400;
+
+function serverPhaseToStepIndex(phase) {
+  if (!phase) return 0;
+  if (phase === "queued" || phase === "workspace") return 0;
+  if (phase === "benchmark") return 1;
+  if (phase === "fitting") return 2;
+  if (phase === "finalize" || phase === "done" || phase === "error" || phase === "cancelled") return 3;
+  return 1;
+}
+
 function CalculatorPage() {
   const theme = useTheme();
   const { isLoggedIn: isAuthenticated, currentUser } = usePlatform();
@@ -114,13 +125,17 @@ function CalculatorPage() {
   const [benchmarkProfile, setBenchmarkProfile] = useState("random");
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [compareProfile, setCompareProfile] = useState("sorted_ascending");
+  const [teachingMode, setTeachingMode] = useState(false);
   const [lastRawAnalysisCompare, setLastRawAnalysisCompare] = useState(null);
   const [mainTab, setMainTab] = useState("source");
   const [expandedCode, setExpandedCode] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [analysisPhaseIndex, setAnalysisPhaseIndex] = useState(0);
+  const [serverRunMessage, setServerRunMessage] = useState("");
+  const [serverRunPhase, setServerRunPhase] = useState(null);
   const abortRef = useRef(null);
+  const analysisJobIdRef = useRef(null);
   const user = isAuthenticated ? currentUser : "Unknown";
 
   useEffect(() => () => {
@@ -151,6 +166,14 @@ function CalculatorPage() {
       });
     }, 400);
     return () => clearInterval(id);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      setServerRunMessage("");
+      setServerRunPhase(null);
+      analysisJobIdRef.current = null;
+    }
   }, [loading]);
 
   useEffect(() => {
@@ -207,6 +230,10 @@ function CalculatorPage() {
 
   const handleCancelAnalysis = useCallback(() => {
     abortRef.current?.abort();
+    const jid = analysisJobIdRef.current;
+    if (jid) {
+      AxiosInstance.post(`/api/analyse-code/async/${jid}/cancel/`).catch(() => {});
+    }
   }, []);
 
   const handleAnalyseClick = async () => {
@@ -228,29 +255,77 @@ function CalculatorPage() {
     setLastRawAnalysis(null);
     setLastRawAnalysisCompare(null);
     setError("");
+    setServerRunMessage("Submitting job…");
 
-    const postAnalysis = (profile) =>
-      AxiosInstance.post(
-        "/api/analyse-code/",
-        {
-          username: user,
-          code: code,
-          language: language,
-          time_complexity: "O(n)",
-          benchmark_profile: profile,
-        },
+    const basePayload = {
+      username: user,
+      code: code,
+      language: language,
+      time_complexity: "O(n)",
+      teaching_mode: teachingMode,
+    };
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const pollJob = async (jobId, profileLabel) => {
+      const url = `/api/analyse-code/async/${jobId}/`;
+      for (;;) {
+        if (controller.signal.aborted) {
+          throw new axios.Cancel("Run aborted");
+        }
+        const { data } = await AxiosInstance.get(url, { signal: controller.signal });
+        setServerRunPhase(data.phase || null);
+        const msg = data.message || data.phase || "Working…";
+        setServerRunMessage(`${profileLabel ? `[${profileLabel}] ` : ""}${msg}`);
+        if (data.status === "done" && data.result) {
+          return data.result;
+        }
+        if (data.status === "error") {
+          const errMsg =
+            typeof data.error === "string"
+              ? data.error
+              : data.message || "Analysis failed";
+          throw new Error(errMsg);
+        }
+        if (data.status === "cancelled") {
+          const e = new Error("cancelled");
+          e.name = "AnalysisCancelled";
+          throw e;
+        }
+        await sleep(POLL_MS);
+      }
+    };
+
+    const startJob = async (benchmark_profile) => {
+      const { data } = await AxiosInstance.post(
+        "/api/analyse-code/async/start/",
+        { ...basePayload, benchmark_profile },
         { signal: controller.signal }
       );
+      const jobId = data.job_id;
+      if (!jobId) {
+        throw new Error("Server did not return a job id.");
+      }
+      analysisJobIdRef.current = jobId;
+      try {
+        return await pollJob(jobId, benchmark_profile);
+      } finally {
+        if (analysisJobIdRef.current === jobId) {
+          analysisJobIdRef.current = null;
+        }
+      }
+    };
 
     try {
-      const primary = await postAnalysis(benchmarkProfile);
-      setLastRawAnalysis(primary.data);
-      setResults(formatResults(primary.data, code, language));
-      setOutputText(formatOutput(primary.data, code, language));
+      const primary = await startJob(benchmarkProfile);
+      setLastRawAnalysis(primary);
+      setResults(formatResults(primary, code, language));
+      setOutputText(formatOutput(primary, code, language));
 
       if (compareEnabled && compareProfile !== benchmarkProfile) {
-        const secondary = await postAnalysis(compareProfile);
-        setLastRawAnalysisCompare(secondary.data);
+        setServerRunMessage("Starting compare profile…");
+        const secondary = await startJob(compareProfile);
+        setLastRawAnalysisCompare(secondary);
       } else {
         setLastRawAnalysisCompare(null);
       }
@@ -261,18 +336,24 @@ function CalculatorPage() {
       if (axios.isCancel(err) || err.code === "ERR_CANCELED" || err.name === "CanceledError") {
         setOutputText("// Run cancelled — adjust your snippet and run again when ready.");
         setError("");
+      } else if (err.name === "AnalysisCancelled" || err.message === "cancelled") {
+        setOutputText("// Run cancelled — adjust your snippet and run again when ready.");
+        setError("");
       } else if (err.response?.status === 401) {
         setError(
           "Sign in or create an account to run analysis. If you self-host the API, set TCA_ALLOW_ANONYMOUS_ANALYSIS=true (default) or DEBUG=true, then restart Django."
         );
       } else {
-        setError("Can't calculate it. Please check your code and try again.");
+        setError(err.message || "Can't calculate it. Please check your code and try again.");
       }
     } finally {
       if (abortRef.current === controller) {
         abortRef.current = null;
       }
+      analysisJobIdRef.current = null;
       setLoading(false);
+      setServerRunMessage("");
+      setServerRunPhase(null);
     }
   };
 
@@ -285,6 +366,7 @@ function CalculatorPage() {
       if (lineInfo) {
         const complexity = lineInfo.best_fit ? lineInfo.best_fit.model : "";
         const avgExecTimes = lineInfo.average_exec_times || {};
+        const bf = lineInfo.best_fit || {};
         return {
           line: line.trim(),
           lineNumber,
@@ -292,6 +374,19 @@ function CalculatorPage() {
           notation: TIME_COMPLEXITY_NOTATION[complexity] || "",
           avgExecTimes,
           series: lineInfo.series || null,
+          fitAmbiguous: Boolean(bf.ambiguous),
+          runnerUpModel: bf.runner_up_model ?? null,
+          runnerUpNotation:
+            bf.runner_up_model && TIME_COMPLEXITY_NOTATION[bf.runner_up_model]
+              ? TIME_COMPLEXITY_NOTATION[bf.runner_up_model]
+              : bf.runner_up_model || null,
+          bicClearance:
+            bf.bic_clearance != null && Number.isFinite(bf.bic_clearance) ? bf.bic_clearance : null,
+          rssRelativeRunnerUp:
+            bf.rss_relative_runner_up != null && Number.isFinite(bf.rss_relative_runner_up)
+              ? bf.rss_relative_runner_up
+              : null,
+          fitNPoints: bf.fit_n_points != null ? bf.fit_n_points : null,
         };
       }
       return {
@@ -318,6 +413,13 @@ function CalculatorPage() {
     results.staticAnalysis = data.static_analysis ?? null;
     results.functionSeries = data.function?.series ?? null;
     results.benchmarkProfile = data.benchmark_profile ?? null;
+    const fnBest = data.function?.best_fit;
+    results.functionFitAmbiguous = Boolean(fnBest?.ambiguous);
+    results.functionRunnerUpModel = fnBest?.runner_up_model ?? null;
+    results.functionBicClearance =
+      fnBest?.bic_clearance != null && Number.isFinite(fnBest.bic_clearance) ? fnBest.bic_clearance : null;
+    results.functionFitNPoints = fnBest?.fit_n_points ?? null;
+    results.fitStaticAlignment = data.fit_static_alignment ?? null;
 
     return results;
   };
@@ -344,13 +446,14 @@ function CalculatorPage() {
           lineInfo.average_exec_times,
           !lineMeasurement
         );
+        const amb = lineInfo.best_fit?.ambiguous ? ' [ambiguous line fit]' : '';
         return `Line ${lineNumber}: ${line} -> ${
           TIME_COMPLEXITY_NOTATION[
             lineInfo.best_fit ? lineInfo.best_fit.model : ""
           ] || ""
         } {${
           lineInfo.best_fit ? lineInfo.best_fit.model : ""
-        }} (${lineMeasurement ? "Avg executions" : "Avg times"}: ${avgExecTimes})`;
+        }} (${lineMeasurement ? "Avg executions" : "Avg times"}: ${avgExecTimes})${amb}`;
       }
       return `Line ${lineNumber}: ${line}`;
     });
@@ -466,7 +569,7 @@ function CalculatorPage() {
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 560, lineHeight: 1.65 }}>
                   Sticky session rail (like topic filters), tabbed workspace for source, results deck, and account
-                  history. Orbital navbar unchanged.
+                  history. Top pill navigation: Calculator, Learning, and About live in the header.
                 </Typography>
               </Box>
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -488,9 +591,10 @@ function CalculatorPage() {
         {loading && mainTab !== "history" ? (
           <AnalysisRunPanel
             phases={ANALYSIS_PHASES}
-            phaseIndex={analysisPhaseIndex}
+            phaseIndex={serverRunPhase ? serverPhaseToStepIndex(serverRunPhase) : analysisPhaseIndex}
             elapsedMs={elapsedMs}
             onCancel={handleCancelAnalysis}
+            serverHeadline={serverRunMessage}
           />
         ) : null}
 
@@ -603,6 +707,24 @@ function CalculatorPage() {
                   Choose a compare profile different from the primary run.
                 </Typography>
               ) : null}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={teachingMode}
+                    onChange={(_, c) => setTeachingMode(c)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    Teaching mode (restrict fit families)
+                  </Typography>
+                }
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.45 }}>
+                Uses a smaller growth-model menu (constant through cubic and common logs) so classroom snippets
+                do not chase exotic exponentials on noisy benches.
+              </Typography>
               <Button
                 variant="contained"
                 color="primary"

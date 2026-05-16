@@ -39,7 +39,7 @@ html[data-theme="dark"] .app-shell::before {
 
 .app-shell-inner {
   position: relative;
-  z-index: 1;
+  z-index: 2;
 }
 
 @keyframes mesh-shift {
@@ -54,6 +54,64 @@ html[data-theme="dark"] .app-shell::before {
 @media (prefers-reduced-motion: reduce) {
   .app-shell::before {
     animation: none;
+  }
+}
+
+/* Floating complexity glyphs (AmbientSymbols) */
+@keyframes ambient-drift {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+    opacity: 0.32;
+  }
+  33% {
+    transform: translate3d(28px, -22px, 0) rotate(4deg);
+    opacity: 0.58;
+  }
+  66% {
+    transform: translate3d(-18px, 16px, 0) rotate(-2deg);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-3deg);
+    opacity: 0.32;
+  }
+}
+
+@keyframes ambient-drift-reverse {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(2deg);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate3d(-24px, 18px, 0) rotate(-3deg);
+    opacity: 0.52;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(2deg);
+    opacity: 0.28;
+  }
+}
+
+.ambient-glyph {
+  animation-name: ambient-drift;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  will-change: transform, opacity;
+}
+
+.ambient-glyph--alt {
+  animation-name: ambient-drift-reverse;
+}
+
+.ambient-glyph--static {
+  animation: none !important;
+  opacity: 0.38 !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ambient-glyph {
+    animation: none;
+    opacity: 0.34;
   }
 }
 

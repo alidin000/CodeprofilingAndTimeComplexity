@@ -33,9 +33,11 @@ import ViewStreamOutlined from '@mui/icons-material/ViewStreamOutlined';
 import TableRowsOutlined from '@mui/icons-material/TableRowsOutlined';
 import ShowChartOutlined from '@mui/icons-material/ShowChartOutlined';
 import PsychologyOutlined from '@mui/icons-material/PsychologyOutlined';
+import TipsAndUpdatesOutlined from '@mui/icons-material/TipsAndUpdatesOutlined';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import GrowthFitChart from './GrowthFitChart';
 import { buildBigOExplainer } from '../util/bigOExplainer';
+import { TIME_COMPLEXITY_NOTATION } from '../constants/timeComplexityNotation';
 
 function complexityChipColors(theme, key) {
   const isDark = theme.palette.mode === 'dark';
@@ -131,6 +133,7 @@ function Output({
       language: analysisLanguage,
       fittedModelKey: modelKey,
       staticAnalysis: results.staticAnalysis,
+      fitStaticAlignment: rawAnalysis?.fit_static_alignment,
     });
   }, [rawAnalysis, analysisLanguage, results.staticAnalysis]);
 
@@ -174,6 +177,26 @@ function Output({
     return `Profiles diverge on the function fit: ${primaryProfile} → ${a}; ${compareBenchmarkProfile} → ${b}. That is a strong hint that input order changes dominant work (e.g. insertion sort on sorted vs random data).`;
   }, [rawAnalysis, rawAnalysisCompare, compareBenchmarkProfile, results.benchmarkProfile]);
 
+  const functionFitCalibration = useMemo(() => {
+    const bf = rawAnalysis?.function?.best_fit;
+    if (!bf) return null;
+    return {
+      ambiguous: Boolean(bf.ambiguous),
+      runnerUpModel: bf.runner_up_model || null,
+      runnerUpNotation: bf.runner_up_model ? TIME_COMPLEXITY_NOTATION[bf.runner_up_model] || bf.runner_up_model : null,
+      bicClearance: bf.bic_clearance != null && Number.isFinite(bf.bic_clearance) ? bf.bic_clearance : null,
+      fitNPoints: bf.fit_n_points != null ? bf.fit_n_points : null,
+      runnerUpRss: bf.runner_up_rss != null && Number.isFinite(bf.runner_up_rss) ? bf.runner_up_rss : null,
+      rssRelativeRunnerUp:
+        bf.rss_relative_runner_up != null && Number.isFinite(bf.rss_relative_runner_up)
+          ? bf.rss_relative_runner_up
+          : null,
+      bicAmbiguityMargin: rawAnalysis?.instrumentation?.bic_ambiguity_margin ?? null,
+    };
+  }, [rawAnalysis]);
+
+  const fitStaticAlignment = rawAnalysis?.fit_static_alignment;
+
   const handleDownloadJson = useCallback(() => {
     if (!jsonBlob) return;
     const blob = new Blob([jsonBlob], { type: 'application/json' });
@@ -212,6 +235,86 @@ function Output({
           letterSpacing: '0.02em',
         }}
       />
+    );
+  };
+
+  const lineCalibrationTooltip = (result) => {
+    if (!result.runnerUpModel && !result.fitAmbiguous) return '';
+    const parts = [];
+    if (result.fitAmbiguous) {
+      parts.push('BIC: runner-up is within the configured ambiguity margin of the winner.');
+    } else {
+      parts.push('A clear runner-up model remains in the mix (see BIC gap in JSON export).');
+    }
+    if (result.runnerUpNotation || result.runnerUpModel) {
+      parts.push(`Runner-up: ${result.runnerUpNotation || ''} (${result.runnerUpModel}).`.trim());
+    }
+    if (result.bicClearance != null && Number.isFinite(result.bicClearance)) {
+      parts.push(`BIC gap: ${Number(result.bicClearance).toFixed(2)}.`);
+    }
+    if (result.rssRelativeRunnerUp != null && Number.isFinite(result.rssRelativeRunnerUp)) {
+      parts.push(`Runner-up RSS / winner RSS ≈ ${Number(result.rssRelativeRunnerUp).toFixed(2)}.`);
+    }
+    if (result.fitNPoints != null) {
+      parts.push(`Points: ${result.fitNPoints}.`);
+    }
+    return parts.join(' ');
+  };
+
+  const renderLineCalibrationAffordance = (result) => {
+    if (!result.complexity || (!result.fitAmbiguous && !result.runnerUpModel)) return null;
+    const title = lineCalibrationTooltip(result);
+    return (
+      <Tooltip title={title || 'Line-level fit calibration'} arrow placement="left">
+        <Chip
+          icon={<TipsAndUpdatesOutlined sx={{ fontSize: '16px !important' }} />}
+          size="small"
+          label={result.fitAmbiguous ? 'Ambiguous' : 'Runner-up'}
+          color={result.fitAmbiguous ? 'warning' : 'default'}
+          variant="outlined"
+          sx={{ height: 22, maxWidth: 120, fontSize: 10, fontWeight: 800, '& .MuiChip-label': { px: 0.75 } }}
+        />
+      </Tooltip>
+    );
+  };
+
+  const renderLineStructuralHint = (result) => {
+    if (!results.staticAnalysis?.ok) return null;
+    const pl = results.staticAnalysis.per_line?.[String(result.lineNumber)];
+    if (!pl?.structural_bound_model) return null;
+    const bn = pl.structural_bound_model;
+    const nest = pl.max_loop_nesting;
+    const notation = TIME_COMPLEXITY_NOTATION[bn] || bn;
+    const lang = (results.staticAnalysis.language || '').toLowerCase();
+    const indexHint =
+      results.staticAnalysis.per_line_indexing === '1_based_stripped_body'
+        ? 'Line number matches the Java/C++ harness (1-based lines in the stripped snippet).'
+        : 'Line index matches the Python harness (0-based dedented body). If you add text before def, indices may shift.';
+    const scanLabel = lang === 'python' ? 'AST' : 'Lex';
+    const title = [
+      lang === 'python'
+        ? `AST: up to ${nest} nested loop level(s) enclose this line.`
+        : `Lexical scan: loop nesting context at this line is at least depth ${nest}.`,
+      `Conservative structural bound ${notation} ({${bn}}).`,
+      indexHint,
+    ].join(' ');
+    return (
+      <Tooltip title={title} arrow placement="left">
+        <Chip
+          label={`${scanLabel} ${notation}`}
+          size="small"
+          variant="outlined"
+          sx={{
+            height: 22,
+            maxWidth: 140,
+            fontSize: 10,
+            fontWeight: 800,
+            borderColor: alpha(theme.palette.secondary.main, 0.45),
+            color: 'secondary.main',
+            '& .MuiChip-label': { px: 0.75 },
+          }}
+        />
+      </Tooltip>
     );
   };
 
@@ -375,6 +478,15 @@ function Output({
                     variant="outlined"
                   />
                 ) : null}
+                {rawAnalysis?.instrumentation?.teaching_mode ? (
+                  <Chip
+                    size="small"
+                    label="Teaching fit set"
+                    sx={{ fontWeight: 800, alignSelf: 'flex-start' }}
+                    color="secondary"
+                    variant="outlined"
+                  />
+                ) : null}
               </Stack>
             )}
 
@@ -412,7 +524,87 @@ function Output({
                     <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block', fontWeight: 600 }}>
                       Wall-clock mean across sizes (fitted curve in Growth tab)
                     </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.75, display: 'block', lineHeight: 1.55, maxWidth: 720 }}>
+                      <strong>Empirical fit</strong> is the BIC-selected growth family from measurements (headline above).{' '}
+                      <strong>Structural bound</strong> (from the Static tab scan when available) is a coarse cap from loop
+                      nesting—not a proof of worst-case Θ, but a cross-check when benches disagree with code shape.
+                    </Typography>
                     {renderExecutionTimes(results.functionAvgExecTimes, true)}
+                    {functionFitCalibration?.runnerUpModel ? (
+                      <Alert
+                        severity={functionFitCalibration.ambiguous ? 'warning' : 'info'}
+                        variant="outlined"
+                        sx={{ mt: 2, borderRadius: 2 }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.65 }}>
+                          {functionFitCalibration.ambiguous ? (
+                            <>
+                              <strong>Ambiguous fit:</strong> runner-up{' '}
+                              <Box component="span" sx={{ fontFamily: theme.typography.fontFamilyMonospace }}>
+                                {functionFitCalibration.runnerUpNotation} ({functionFitCalibration.runnerUpModel})
+                              </Box>{' '}
+                              is within the configured BIC margin
+                              {functionFitCalibration.bicAmbiguityMargin != null
+                                ? ` (${Number(functionFitCalibration.bicAmbiguityMargin).toFixed(1)})`
+                                : ''}{' '}
+                              of the winner on{' '}
+                              {functionFitCalibration.fitNPoints != null ? `${functionFitCalibration.fitNPoints} ` : ''}
+                              growth points. Compare curves in the Growth tab before trusting the headline class.
+                              {functionFitCalibration.rssRelativeRunnerUp != null
+                                ? ` Runner-up RSS is ${functionFitCalibration.rssRelativeRunnerUp.toFixed(2)}× the winner’s.`
+                                : ''}
+                            </>
+                          ) : (
+                            <>
+                              Runner-up:{' '}
+                              <Box component="span" sx={{ fontFamily: theme.typography.fontFamilyMonospace }}>
+                                {functionFitCalibration.runnerUpNotation} ({functionFitCalibration.runnerUpModel})
+                              </Box>
+                              {functionFitCalibration.bicClearance != null
+                                ? ` — BIC gap ${functionFitCalibration.bicClearance.toFixed(2)} (larger is a clearer separation).`
+                                : '.'}
+                              {functionFitCalibration.rssRelativeRunnerUp != null
+                                ? ` Runner-up RSS is ${functionFitCalibration.rssRelativeRunnerUp.toFixed(2)}× the winner’s (≈1 means similar residual energy).`
+                                : ''}
+                            </>
+                          )}
+                        </Typography>
+                      </Alert>
+                    ) : null}
+                    {fitStaticAlignment && fitStaticAlignment.status && fitStaticAlignment.status !== 'unavailable' ? (
+                      <Alert
+                        severity={
+                          fitStaticAlignment.status === 'empirical_harsher'
+                            ? 'warning'
+                            : fitStaticAlignment.status === 'empirical_milder'
+                              ? 'info'
+                              : 'success'
+                        }
+                        variant="outlined"
+                        sx={{ mt: 2, borderRadius: 2 }}
+                      >
+                        <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.65 }}>
+                          <strong>Structure vs bench:</strong> empirical{' '}
+                          <Box component="span" sx={{ fontFamily: theme.typography.fontFamilyMonospace }}>
+                            {fitStaticAlignment.empirical_model}
+                          </Box>
+                          {fitStaticAlignment.structural_bound_model ? (
+                            <>
+                              {' '}
+                              vs nesting-based bound{' '}
+                              <Box component="span" sx={{ fontFamily: theme.typography.fontFamilyMonospace }}>
+                                {fitStaticAlignment.structural_bound_model}
+                              </Box>
+                            </>
+                          ) : null}
+                          {fitStaticAlignment.rank_delta != null && Number.isFinite(fitStaticAlignment.rank_delta) ? (
+                            <> (rank gap {fitStaticAlignment.rank_delta > 0 ? '+' : ''}
+                            {Number(fitStaticAlignment.rank_delta).toFixed(0)})</>
+                          ) : null}
+                          . {fitStaticAlignment.message || ''}
+                        </Typography>
+                      </Alert>
+                    ) : null}
                     {explainer?.bullets?.length ? (
                       <Paper
                         elevation={0}
@@ -515,7 +707,7 @@ function Output({
                                   },
                                 }}
                               >
-                                <Tooltip title={result.complexity ? `Fit: ${result.complexity}` : 'No line-level fit'}>
+                                <Tooltip title={result.complexity ? `Empirical fit: ${result.complexity}` : 'No line-level fit'}>
                                   <Box sx={{ width: 6, flexShrink: 0, bgcolor: rail }} />
                                 </Tooltip>
                                 <Box
@@ -551,13 +743,14 @@ function Output({
                                 </Box>
                                 <Box
                                   sx={{
-                                    width: { xs: 100, sm: 140 },
+                                    width: { xs: 100, sm: 148 },
                                     flexShrink: 0,
                                     p: 1,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'flex-end',
                                     justifyContent: 'center',
+                                    gap: 0.5,
                                     borderLeft: `1px solid ${alpha(theme.palette.divider, 0.6)}`,
                                     bgcolor: alpha(theme.palette.background.paper, 0.35),
                                   }}
@@ -569,6 +762,8 @@ function Output({
                                       —
                                     </Typography>
                                   )}
+                                  {renderLineCalibrationAffordance(result)}
+                                  {renderLineStructuralHint(result)}
                                 </Box>
                               </Stack>
                             </motion.div>
@@ -593,7 +788,10 @@ function Output({
                         <TableRow>
                           <TableCell width={56}>#</TableCell>
                           <TableCell>Code</TableCell>
-                          <TableCell>Fit</TableCell>
+                          <TableCell align="right">Fit</TableCell>
+                          <TableCell width={96} align="center">
+                            Calib
+                          </TableCell>
                           <TableCell>{lineUsesExecCounts ? 'Avg executions by n' : 'Avg times by n'}</TableCell>
                         </TableRow>
                       </TableHead>
@@ -607,7 +805,7 @@ function Output({
                               transition: 'background-color 0.2s ease',
                             }}
                           >
-                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{result.lineNumber ?? index + 1}</TableCell>
                             <TableCell>
                               <Typography
                                 component="code"
@@ -621,8 +819,21 @@ function Output({
                                 {result.line}
                               </Typography>
                             </TableCell>
-                            <TableCell>
+                            <TableCell align="right">
                               {result.complexity ? renderComplexityChip(result.notation, result.complexity) : '—'}
+                            </TableCell>
+                            <TableCell align="center">
+                              {(() => {
+                                const calib = renderLineCalibrationAffordance(result);
+                                const stru = renderLineStructuralHint(result);
+                                if (!calib && !stru) return '—';
+                                return (
+                                  <Stack alignItems="center" spacing={0.5}>
+                                    {calib}
+                                    {stru}
+                                  </Stack>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell>{renderExecutionTimes(result.avgExecTimes, !lineUsesExecCounts)}</TableCell>
                           </TableRow>
@@ -674,7 +885,7 @@ function Output({
                         {deckTab === 0 && (
                           <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 600 }}>
                             Use the runway to read code with inline fits. Switch to <strong>Growth</strong> for curves,{' '}
-                            <strong>Static</strong> for AST hints (Python).
+                            <strong>Static</strong> for structure scans (Python AST or Java/C++ lexical loop scan).
                           </Typography>
                         )}
                         {deckTab === 1 && showGrowth && (
@@ -731,8 +942,8 @@ function Output({
                             <Typography variant="body2" component="div">
                               Function <strong>{results.staticAnalysis.function}</strong>: max loop nesting{' '}
                               <strong>{results.staticAnalysis.max_loop_nesting}</strong>,{' '}
-                              <strong>{results.staticAnalysis.for_loops}</strong> for-loop(s),{' '}
-                              <strong>{results.staticAnalysis.while_loops}</strong> while-loop(s), direct recursion{' '}
+                              <strong>{results.staticAnalysis.for_loops}</strong> for,{' '}
+                              <strong>{results.staticAnalysis.while_loops}</strong> while/do, direct recursion{' '}
                               <strong>{results.staticAnalysis.recursion_direct ? 'yes' : 'no'}</strong>.
                             </Typography>
                             {(results.staticAnalysis.hints || []).length > 0 && (
@@ -744,6 +955,19 @@ function Output({
                                 ))}
                               </Box>
                             )}
+                            {results.staticAnalysis.per_line &&
+                            Object.keys(results.staticAnalysis.per_line).length > 0 ? (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, lineHeight: 1.6 }}>
+                                Per-line structural hints are attached for{' '}
+                                {Object.keys(results.staticAnalysis.per_line).length} line(s) (
+                                {results.staticAnalysis.per_line_indexing === '1_based_stripped_body'
+                                  ? '1-based stripped snippet, same keys as the Java/C++ harness'
+                                  : results.staticAnalysis.per_line_indexing === '0_based_dedented_body'
+                                    ? '0-based dedented body, same keys as the Python harness'
+                                    : results.staticAnalysis.per_line_indexing || 'see JSON'}
+                                ). See <strong>Lex / AST …</strong> chips on loop lines in the runway/table.
+                              </Typography>
+                            ) : null}
                           </Stack>
                         )}
                       </motion.div>

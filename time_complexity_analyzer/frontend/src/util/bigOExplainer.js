@@ -47,9 +47,9 @@ function notationForModel(modelKey) {
 }
 
 /**
- * Build "Why this Big-O?" copy from empirical fit + optional Python static hints.
+ * Build "Why this Big-O?" copy from empirical fit + optional static hints (Python AST or Java/C++ scan).
  */
-export function buildBigOExplainer({ language, fittedModelKey, staticAnalysis }) {
+export function buildBigOExplainer({ language, fittedModelKey, staticAnalysis, fitStaticAlignment }) {
   const notation = notationForModel(fittedModelKey);
   const bullets = [];
 
@@ -68,36 +68,71 @@ export function buildBigOExplainer({ language, fittedModelKey, staticAnalysis })
   );
 
   let staticAlignment = 'n/a';
-  if (language === 'Python' && staticAnalysis && staticAnalysis.ok) {
-    const nest = staticAnalysis.max_loop_nesting ?? 0;
+  if (fitStaticAlignment && fitStaticAlignment.status) {
+    const st = fitStaticAlignment.status;
+    if (st !== 'unavailable') {
+      if (st === 'aligned') staticAlignment = 'aligned (structure vs bench)';
+      else if (st === 'empirical_milder') staticAlignment = 'empirical milder than nesting bound';
+      else if (st === 'empirical_harsher') staticAlignment = 'empirical harsher than nesting bound';
+      else if (st === 'incomplete') staticAlignment = 'incomplete';
+      else staticAlignment = st;
+      if (fitStaticAlignment.message) {
+        bullets.push(`Structure vs bench: ${fitStaticAlignment.message}`);
+      }
+    }
+  }
+
+  if (staticAnalysis && staticAnalysis.ok) {
+    const lang = (staticAnalysis.language || '').toLowerCase();
     const hints = staticAnalysis.hints || [];
-    bullets.push(
-      `Python AST hints: max loop nesting ${nest}, recursion ${staticAnalysis.recursion_direct ? 'yes' : 'no'}.`
-    );
-    if (hints.length) {
+    if (lang === 'python') {
+      const nest = staticAnalysis.max_loop_nesting ?? 0;
+      bullets.push(
+        `Python AST hints: max loop nesting ${nest}, recursion ${staticAnalysis.recursion_direct ? 'yes' : 'no'}.`
+      );
+      if (hints.length) {
+        bullets.push(...hints.map((h) => `Structure: ${h}`));
+      }
+      if (staticAlignment === 'n/a') {
+        if (fittedModelKey === 'quadratic' && nest >= 2) {
+          staticAlignment = 'agrees';
+        } else if (fittedModelKey === 'quadratic' && nest <= 1) {
+          staticAlignment = 'nuanced';
+          bullets.push(
+            'Note: Fit suggests quadratic growth but AST shows shallow nesting—could be library calls, Python overhead, or line-level attribution effects.'
+          );
+        } else if (fittedModelKey === 'linear' && nest === 1) {
+          staticAlignment = 'agrees';
+        } else if (fittedModelKey === 'linear' && nest >= 2) {
+          staticAlignment = 'nuanced';
+          bullets.push(
+            'Note: Nested loops in AST but linear-looking fit—inner loops may be bounded or dominated by a few lines.'
+          );
+        } else {
+          staticAlignment = 'nuanced';
+        }
+      }
+    } else if (lang === 'java' || lang === 'cpp') {
+      const label = lang === 'java' ? 'Java' : 'C++';
+      bullets.push(
+        `${label} structure scan: max loop nesting ${staticAnalysis.max_loop_nesting ?? 0}, ` +
+          `${staticAnalysis.for_loops ?? 0} for, ${staticAnalysis.while_loops ?? 0} while/do, recursion ` +
+          `${staticAnalysis.recursion_direct ? 'yes' : 'no'}.`
+      );
+      if (staticAnalysis.scan_note) {
+        bullets.push(`Structure note: ${staticAnalysis.scan_note}`);
+      }
+      if (hints.length) {
+        bullets.push(...hints.map((h) => `Structure: ${h}`));
+      }
+      if (staticAlignment === 'n/a') {
+        staticAlignment = 'nuanced';
+      }
+    } else if (hints.length) {
       bullets.push(...hints.map((h) => `Structure: ${h}`));
     }
-    if (fittedModelKey === 'quadratic' && nest >= 2) {
-      staticAlignment = 'agrees';
-    } else if (fittedModelKey === 'quadratic' && nest <= 1) {
-      staticAlignment = 'nuanced';
-      bullets.push(
-        'Note: Fit suggests quadratic growth but AST shows shallow nesting—could be library calls, Python overhead, or line-level attribution effects.'
-      );
-    } else if (fittedModelKey === 'linear' && nest === 1) {
-      staticAlignment = 'agrees';
-    } else if (fittedModelKey === 'linear' && nest >= 2) {
-      staticAlignment = 'nuanced';
-      bullets.push(
-        'Note: Nested loops in AST but linear-looking fit—inner loops may be bounded or dominated by a few lines.'
-      );
-    } else {
-      staticAlignment = 'nuanced';
-    }
-  } else if (language && language !== 'Python') {
-    bullets.push(
-      'Static structure hints are only attached for Python today; use line hotspots + compare runs for Java/C++.'
-    );
+  } else if (language && (!staticAnalysis || !staticAnalysis.ok)) {
+    bullets.push('No static structure payload on this run (parse error or empty snippet).');
   }
 
   return {

@@ -10,3 +10,6 @@ scipy>=1.7.0
 numpy>=1.20
 gunicorn>=22.0
 whitenoise>=6.6
+tree-sitter>=0.24,<0.26
+tree-sitter-java==0.23.5
+tree-sitter-cpp==0.23.4

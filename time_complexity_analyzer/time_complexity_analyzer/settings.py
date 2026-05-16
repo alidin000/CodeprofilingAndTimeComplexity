@@ -34,6 +34,11 @@ TCA_ALLOW_ANONYMOUS_ANALYSIS = os.environ.get(
     'TCA_ALLOW_ANONYMOUS_ANALYSIS', 'true'
 ).lower() in ('true', '1', 'yes')
 
+# When true, curve-fit teaching mode (restricted model set) is on unless the client sends teaching_mode=false.
+TCA_TEACHING_MODE_DEFAULT = os.environ.get(
+    'TCA_TEACHING_MODE_DEFAULT', 'false'
+).lower() in ('true', '1', 'yes')
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 ALLOWED_HOSTS += ['.onrender.com']
 
@@ -118,6 +123,14 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# In-memory cache for async analysis job state (single-process; use Redis for multi-worker).
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'tca-analysis-jobs',
     }
 }
 

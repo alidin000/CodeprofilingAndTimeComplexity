@@ -11,6 +11,7 @@ _EXP_CLIP = 709.0
 _EXP2_CLIP = 1020.0
 
 from analyzer.measurement_config import (
+    BIC_AMBIGUITY_MARGIN,
     BIC_PARAMETER_PENALTY_GAMMA,
     PER_SIZE_AGGREGATION,
     WARMUP_RUNS,
@@ -252,7 +253,49 @@ def _fitting_bounds(name, n_params, x_max):
     return lo, hi
 
 
-def select_best_fitting_model(x_data, y_data):
+def _attach_fit_calibration(sorted_candidates, n, *, bic_ambiguity_margin=None):
+    """
+    Attach runner-up BIC, clearance, RSS comparison, and ambiguity flag to the winning fit dict.
+
+    ``sorted_candidates`` is sorted by (bic, k) ascending (lower BIC is better).
+    """
+    margin = float(bic_ambiguity_margin) if bic_ambiguity_margin is not None else float(BIC_AMBIGUITY_MARGIN)
+    if not sorted_candidates:
+        raise ValueError('sorted_candidates must be non-empty')
+    winner = dict(sorted_candidates[0])
+    runner = sorted_candidates[1] if len(sorted_candidates) > 1 else None
+    clearance = float(runner['bic'] - winner['bic']) if runner else None
+    winner['fit_n_points'] = int(n)
+    winner['runner_up_model'] = runner['model'] if runner else None
+    winner['runner_up_bic'] = float(runner['bic']) if runner else None
+    winner['runner_up_rss'] = float(runner['rss']) if runner and runner.get('rss') is not None else None
+    wrss = winner.get('rss')
+    rrss = winner.get('runner_up_rss')
+    if wrss is not None and rrss is not None and float(wrss) > 1e-300:
+        winner['rss_relative_runner_up'] = float(rrss) / float(wrss)
+    else:
+        winner['rss_relative_runner_up'] = None
+    if clearance is not None and np.isfinite(clearance):
+        winner['bic_clearance'] = clearance
+    else:
+        winner['bic_clearance'] = None
+    winner['ambiguous'] = bool(
+        runner is not None
+        and clearance is not None
+        and np.isfinite(clearance)
+        and clearance < margin
+    )
+    return winner
+
+
+def select_best_fitting_model(
+    x_data,
+    y_data,
+    *,
+    model_allowlist=None,
+    bic_gamma=None,
+    bic_ambiguity_margin=None,
+):
     """
     Fit candidate growth models and pick the best by BIC (parsimony + fit).
 
@@ -260,41 +303,79 @@ def select_best_fitting_model(x_data, y_data):
     the fallback approach ensures that a model is still selected.
 
     Args:
-        x_data (np.array): Input data sizes.
-        y_data (np.array): Corresponding execution times.
+        model_allowlist: optional set of model names to restrict candidates (teaching mode).
+        bic_gamma: optional override for BIC parameter-count penalty (> 0).
+        bic_ambiguity_margin: optional override for runner-up ambiguity margin.
 
     Returns:
-        dict: best-fit model name, parameters, RSS on raw residuals, and BIC score.
+        dict: best-fit model name, parameters, RSS, BIC, plus calibration keys:
+        ``fit_n_points``, ``runner_up_model``, ``runner_up_bic``, ``runner_up_rss``,
+        ``rss_relative_runner_up``, ``bic_clearance``,
+        ``ambiguous`` (True when runner-up is within margin of winner).
     """
-    best_fit = {'model': None, 'params': None, 'rss': np.inf, 'bic': np.inf, 'k': 10**9}
+    gamma = BIC_PARAMETER_PENALTY_GAMMA
+    if bic_gamma is not None:
+        try:
+            g = float(bic_gamma)
+            if g > 0:
+                gamma = g
+        except (TypeError, ValueError):
+            pass
+
     y_arr = np.asarray(y_data, dtype=float)
     if y_arr.size == 0:
-        return {'model': 'constant', 'params': [0.0], 'rss': 0.0, 'bic': 0.0, 'k': 1}
-    if np.all(y_arr == 0):
-        return {'model': 'constant', 'params': [0.0], 'rss': 0.0, 'bic': 0.0, 'k': 1}
-    if y_arr.size < 2:
         return {
             'model': 'constant',
-            'params': [float(np.mean(y_arr))],
+            'params': [0.0],
             'rss': 0.0,
             'bic': 0.0,
             'k': 1,
+            'fit_n_points': 0,
+            'runner_up_model': None,
+            'runner_up_bic': None,
+            'runner_up_rss': None,
+            'rss_relative_runner_up': None,
+            'bic_clearance': None,
+            'ambiguous': False,
         }
+    if np.all(y_arr == 0):
+        return {
+            'model': 'constant',
+            'params': [0.0],
+            'rss': 0.0,
+            'bic': 0.0,
+            'k': 1,
+            'fit_n_points': int(y_arr.size),
+            'runner_up_model': None,
+            'runner_up_bic': None,
+            'runner_up_rss': None,
+            'rss_relative_runner_up': None,
+            'bic_clearance': None,
+            'ambiguous': False,
+        }
+    if y_arr.size < 2:
+        return _attach_fit_calibration(
+            [
+                {
+                    'model': 'constant',
+                    'params': [float(np.mean(y_arr))],
+                    'rss': 0.0,
+                    'bic': 0.0,
+                    'k': 1,
+                }
+            ],
+            int(y_arr.size),
+            bic_ambiguity_margin=bic_ambiguity_margin,
+        )
 
     n = int(y_arr.size)
-    fallback_fit = {
-        'model': 'linear',
-        'params': [0.0, float(np.mean(y_arr))],
-        'rss': np.inf,
-        'bic': np.inf,
-        'k': 2,
-    }
-
-    model_scores = []  # (bic, k, rss, name, params)
+    model_scores = []  # (bic, k, rss, name, params) pre-simplify
+    fit_candidates = []
 
     for name, model in models.items():
+        if model_allowlist is not None and name not in model_allowlist:
+            continue
         try:
-            # Skip models that can't handle the input range
             if name in ['logarithmic', 'log_logarithmic', 'log_linear', 'quasilinear'] and np.any(x_data <= 0):
                 continue
             if name in ['factorial', 'double_exponential'] and np.any(x_data > 20):
@@ -318,7 +399,7 @@ def select_best_fitting_model(x_data, y_data):
             params = result.x
             rss_raw = float(np.sum(result.fun**2))
             k = int(len(params))
-            bic = _bic_gaussian(n, rss_raw, k)
+            bic = _bic_gaussian(n, rss_raw, k, gamma)
             if not np.isfinite(bic):
                 continue
 
@@ -326,41 +407,61 @@ def select_best_fitting_model(x_data, y_data):
 
             simplified_name, simplified_params = simplify_model(name, params)
             k_s = len(simplified_params) if simplified_params is not None else k
-            bic_s = _bic_gaussian(n, rss_raw, k_s)
+            bic_s = _bic_gaussian(n, rss_raw, k_s, gamma)
             if not np.isfinite(bic_s):
                 continue
-            criterion = (bic_s, k_s)
-            best_crit = (best_fit['bic'], best_fit['k'])
-            if best_fit['model'] is None or criterion < best_crit:
-                best_fit = {
+            fit_candidates.append(
+                {
                     'model': simplified_name,
                     'params': simplified_params,
                     'rss': rss_raw,
                     'bic': bic_s,
                     'k': k_s,
                 }
+            )
         except Exception as e:
             logging.debug("Model %s not usable for this series: %s", name, e)
 
-    # If the original logic fails, fallback to recalculation with updated logic
-    if best_fit['model'] is None:
-        logging.info("Original logic failed; falling back to updated logic.")
-        if model_scores:
-            model_scores.sort(key=lambda t: (t[0], t[1]))  # bic, k
-            bic, k, rss_raw, name, params = model_scores[0]
+    if not fit_candidates and model_scores:
+        logging.info("No simplified candidates; rebuilding from raw model scores.")
+        model_scores.sort(key=lambda t: (t[0], t[1]))
+        for bic, k, rss_raw, name, params in model_scores:
             simplified_name, simplified_params = simplify_model(name, params)
             k_s = len(simplified_params) if simplified_params is not None else k
-            bic_s = _bic_gaussian(n, rss_raw, k_s)
-            fallback_fit = {
-                'model': simplified_name,
-                'params': simplified_params,
-                'rss': rss_raw,
-                'bic': bic_s,
-                'k': k_s,
-            }
-        return fallback_fit
+            bic_s = _bic_gaussian(n, rss_raw, k_s, gamma)
+            if not np.isfinite(bic_s):
+                continue
+            fit_candidates.append(
+                {
+                    'model': simplified_name,
+                    'params': simplified_params,
+                    'rss': rss_raw,
+                    'bic': bic_s,
+                    'k': k_s,
+                }
+            )
 
-    return best_fit
+    if not fit_candidates:
+        logging.warning("No growth model produced a finite BIC; using linear placeholder.")
+        return {
+            'model': 'linear',
+            'params': [0.0, float(np.mean(y_arr))],
+            'rss': np.inf,
+            'bic': np.inf,
+            'k': 2,
+            'fit_n_points': n,
+            'runner_up_model': None,
+            'runner_up_bic': None,
+            'runner_up_rss': None,
+            'rss_relative_runner_up': None,
+            'bic_clearance': None,
+            'ambiguous': True,
+        }
+
+    fit_candidates.sort(key=lambda d: (d['bic'], d['k']))
+    return _attach_fit_calibration(
+        fit_candidates, n, bic_ambiguity_margin=bic_ambiguity_margin
+    )
 
 
 def _aggregate_trial_bucket(bucket):
@@ -449,7 +550,7 @@ def build_fit_series(x_data, y_data, best_fit) -> Optional[dict]:
     }
 
 
-def parse_and_analyze(file_paths):
+def parse_and_analyze(file_paths, *, model_allowlist=None, bic_gamma=None, bic_ambiguity_margin=None):
     sizes = [int(path.split('_')[-1].split('.')[0]) for path in file_paths]
     aggregated_line_exec_times = {}
     aggregated_function_exec_times = {size: [] for size in sizes}
@@ -464,6 +565,24 @@ def parse_and_analyze(file_paths):
 
         aggregated_function_exec_times[size].extend(function_exec_times)
 
+    gamma_reported = float(BIC_PARAMETER_PENALTY_GAMMA)
+    if bic_gamma is not None:
+        try:
+            g_try = float(bic_gamma)
+            if g_try > 0:
+                gamma_reported = g_try
+        except (TypeError, ValueError):
+            pass
+
+    margin_reported = float(BIC_AMBIGUITY_MARGIN)
+    if bic_ambiguity_margin is not None:
+        try:
+            m_try = float(bic_ambiguity_margin)
+            if m_try > 0:
+                margin_reported = m_try
+        except (TypeError, ValueError):
+            pass
+
     best_fits = {
         'lines': {},
         'function': None,
@@ -471,7 +590,11 @@ def parse_and_analyze(file_paths):
         'instrumentation': {
             'warmup_runs_per_size': WARMUP_RUNS,
             'per_size_aggregation': PER_SIZE_AGGREGATION,
-            'bic_parameter_penalty_gamma': BIC_PARAMETER_PENALTY_GAMMA,
+            'bic_parameter_penalty_gamma': gamma_reported,
+            'bic_ambiguity_margin': margin_reported,
+            'bic_gamma_override_requested': bic_gamma is not None,
+            'teaching_mode': bool(model_allowlist),
+            'fitting_model_allowlist': sorted(model_allowlist) if model_allowlist else None,
             'sizes': list(sizes),
             'curve_fit_notes': (
                 'Line keys are execution-hit totals per timed invocation; '
@@ -483,7 +606,13 @@ def parse_and_analyze(file_paths):
 
     for line_num, exec_times_by_size in aggregated_line_exec_times.items():
         x_data, y_data = _xy_series_for_fit(sizes, exec_times_by_size)
-        best_fit = select_best_fitting_model(x_data, y_data)
+        best_fit = select_best_fitting_model(
+            x_data,
+            y_data,
+            model_allowlist=model_allowlist,
+            bic_gamma=bic_gamma,
+            bic_ambiguity_margin=bic_ambiguity_margin,
+        )
         avg_exec_time = {}
         for size in sizes:
             if size not in exec_times_by_size or not exec_times_by_size[size]:
@@ -499,7 +628,13 @@ def parse_and_analyze(file_paths):
 
     if any(aggregated_function_exec_times[s] for s in sizes):
         x_data, y_data = _xy_series_for_fit(sizes, aggregated_function_exec_times)
-        overall_best_fit = select_best_fitting_model(x_data, y_data)
+        overall_best_fit = select_best_fitting_model(
+            x_data,
+            y_data,
+            model_allowlist=model_allowlist,
+            bic_gamma=bic_gamma,
+            bic_ambiguity_margin=bic_ambiguity_margin,
+        )
         avg_exec_time = {}
         for size in sizes:
             if not aggregated_function_exec_times[size]:

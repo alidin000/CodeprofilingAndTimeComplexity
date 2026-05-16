@@ -1,8 +1,43 @@
 
 # Time Complexity Analyzer
 
+Web app for **wall-clock profiling**, **growth-curve fitting**, and **learning content** around how a single function scales (Python, Java, C++).
+
+---
+
+## Quick start
+
+| Area | Command |
+|------|---------|
+| **Backend** | From `time_complexity_analyzer/`: `pip install -r requirements.txt`, then `python manage.py migrate` and `python manage.py runserver` |
+| **Frontend** | From `time_complexity_analyzer/frontend/`: `npm install`, then `npm start` |
+| **Tests** | Backend: `python manage.py test` and/or `pytest time_complexity_analyzer/analyzer`. Frontend: `npm test` in `frontend/` |
+| **Docker API** | Build/run using `time_complexity_analyzer/Dockerfile.backend` (Python **3.12** image; JDK + g++ included for Java/C++ harness) |
+
+Environment variables for Django live in `time_complexity_analyzer/time_complexity_analyzer/settings.py` (e.g. `DJANGO_SECRET_KEY`). Use a real secret in production.
+
+---
+
+## Stack (high level)
+
+- **API**: Django + Django REST Framework, Gunicorn in Docker.
+- **UI**: React (CRA), MUI, Framer Motion, Recharts.
+- **Analysis**: SciPy least-squares fitting, optional **tree-sitter** grammars for richer Java/C++ static loop hints when those packages are installed (see `requirements.txt`).
+
+CI runs Python **3.12** (see `.github/workflows/ci-pipeline.yml`).
+
+---
+
+## UI shell
+
+- **Header**: centered floating “pill” (glass) with primary nav, workspace label, quick search (⌘/Ctrl+K), theme toggle, and auth.
+- **Footer**: same floating pill treatment for copyright and links.
+- **Background**: light animated complexity-themed glyphs (respects reduced-motion).
+
+---
+
 ## Overview
-The **Time Complexity Analyzer** is a powerful tool for code profiling, designed to measure runtime and provide insights into the performance of functions. While the tool approximates the time complexity of functions, its accuracy is limited due to the inherent challenges of data fitting and model simplification.
+The **Time Complexity Analyzer** is a tool for code profiling, designed to measure runtime and provide insights into the performance of functions. While the tool approximates the time complexity of functions, its accuracy is limited due to the inherent challenges of data fitting and model simplification.
 
 ---
 
@@ -65,6 +100,8 @@ The tool applies the "least squares method" to fit runtime data to known mathema
 ---
 
 ## Screenshots
+
+> Paths below assume screenshots exist under `images/` at the repo root. Replace or add assets as the UI evolves.
 
 ### Main Page
 ![Main Page](./images/main_page.png)

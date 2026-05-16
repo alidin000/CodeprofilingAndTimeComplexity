@@ -119,11 +119,11 @@ export function createAppTheme(mode) {
         },
       },
       MuiAppBar: {
-        defaultProps: { elevation: 0, color: 'transparent' },
+        defaultProps: { elevation: 0, color: 'transparent', square: true },
         styleOverrides: {
           root: {
-            backdropFilter: 'blur(16px) saturate(1.5)',
-            WebkitBackdropFilter: 'blur(16px) saturate(1.5)',
+            borderRadius: 0,
+            backgroundImage: 'none',
           },
         },
       },

@@ -17,6 +17,7 @@ import LoginOutlined from '@mui/icons-material/LoginOutlined';
 import PersonAddAltOutlined from '@mui/icons-material/PersonAddAltOutlined';
 import logo from '../../assets/logo.png';
 import { usePlatform } from '../../context/PlatformContext';
+import { dockBtnSx, floatingGlassShellSx } from './navDockStyles';
 
 const linkSx = (theme, { active }) => ({
   display: 'flex',
@@ -42,26 +43,8 @@ const linkSx = (theme, { active }) => ({
   },
 });
 
-const dockBtnSx = (theme, active) => ({
-  width: 48,
-  height: 48,
-  borderRadius: '14px',
-  border: `1px solid ${active ? alpha(theme.palette.secondary.main, 0.65) : alpha(theme.palette.divider, 0.9)}`,
-  color: active ? theme.palette.secondary.main : theme.palette.text.secondary,
-  bgcolor: active
-    ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.35 : 0.18)
-    : alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.25 : 0.55),
-  backdropFilter: 'blur(14px)',
-  transition: 'transform 0.2s ease, border-color 0.2s ease, color 0.2s ease',
-  '&:hover': {
-    transform: 'scale(1.06)',
-    borderColor: alpha(theme.palette.primary.light, 0.55),
-    color: theme.palette.text.primary,
-  },
-});
-
 /**
- * Primary navigation: full-width drawer body, or floating “orbital” dock (desktop).
+ * Primary navigation: full-width drawer (mobile menu), or floating vertical dock when used in drawer.
  */
 export default function SidebarNav({ onNavigate, variant = 'full' }) {
   const theme = useTheme();
@@ -75,31 +58,7 @@ export default function SidebarNav({ onNavigate, variant = 'full' }) {
 
   if (isDock) {
     return (
-      <Box
-        component="nav"
-        aria-label="Main"
-        sx={{
-          width: 72,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 1,
-          py: 2,
-          px: 1,
-          borderRadius: 4,
-          border: `1px solid ${alpha(theme.palette.primary.main, 0.28)}`,
-          background:
-            theme.palette.mode === 'dark'
-              ? alpha('#0c0a09', 0.55)
-              : alpha('#fafaf9', 0.72),
-          backdropFilter: 'blur(22px) saturate(1.4)',
-          WebkitBackdropFilter: 'blur(22px) saturate(1.4)',
-          boxShadow:
-            theme.palette.mode === 'dark'
-              ? `0 18px 60px ${alpha('#000', 0.55)}, inset 0 1px 0 ${alpha('#fff', 0.04)}`
-              : `0 18px 50px ${alpha(theme.palette.primary.main, 0.12)}, inset 0 1px 0 ${alpha('#fff', 0.85)}`,
-        }}
-      >
+      <Box component="nav" aria-label="Main" sx={floatingGlassShellSx(theme, { orientation: 'column' })}>
         <Box
           component="img"
           src={logo}
@@ -163,9 +122,9 @@ export default function SidebarNav({ onNavigate, variant = 'full' }) {
                 color="secondary"
                 sx={{
                   minWidth: 0,
-                  width: 48,
-                  height: 48,
-                  borderRadius: '14px',
+                  width: 44,
+                  height: 44,
+                  borderRadius: '12px',
                   p: 0,
                   boxShadow: `0 8px 28px ${alpha(theme.palette.secondary.main, 0.35)}`,
                 }}

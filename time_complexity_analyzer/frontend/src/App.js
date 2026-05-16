@@ -6,6 +6,7 @@ import Login from './components/Login';
 import Signup from './components/SignUp';
 import AboutUs from './components/AboutUs';
 import PlatformLayout from './components/layout/PlatformLayout';
+import AmbientSymbols from './components/layout/AmbientSymbols';
 import { PlatformProvider } from './context/PlatformContext';
 import { createAppTheme } from './theme';
 import './App.css';
@@ -67,6 +68,7 @@ const App = () => {
         <Router>
           <CssBaseline />
           <Box className="app-shell">
+            <AmbientSymbols />
             <Box className="app-shell-inner" display="flex" flexDirection="column" minHeight="100vh">
               <Routes>
                 <Route element={<PlatformLayout />}>

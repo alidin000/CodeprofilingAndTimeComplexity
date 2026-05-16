@@ -1,8 +1,8 @@
 """
 Static (AST-based) structure hints for Python submissions.
 
-Empirical fitting (Phase 1) stays the source of truth for Big-O labels; this
-module adds complementary structure signals for the UI and future ranking.
+Empirical fitting remains the headline Big-O label; this module adds a conservative
+``structural_bound_model`` from loop nesting so the UI can compare structure vs benches.
 """
 
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
+import textwrap
 from typing import Any, Optional
 
 
@@ -112,6 +113,79 @@ class _RecursionVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _structural_bound_model(max_nesting: int) -> str:
+    """Conservative polynomial-style bound from counted loop depth (Python hints only)."""
+    if max_nesting <= 0:
+        return "constant"
+    if max_nesting == 1:
+        return "linear"
+    if max_nesting == 2:
+        return "quadratic"
+    return "cubic"
+
+
+def _stmt_end_lineno(node: ast.AST) -> int:
+    return int(getattr(node, "end_lineno", None) or getattr(node, "lineno", 1) or 1)
+
+
+def _collect_loop_intervals(body: list[ast.stmt], base_depth: int, out: list[tuple[int, int, int]]) -> None:
+    """Append (start_lineno, end_lineno, depth) for each loop region (1-based inclusive, same frame as ``ast.parse``)."""
+    for st in body:
+        if isinstance(st, (ast.For, ast.While, ast.AsyncFor)):
+            depth = base_depth + 1
+            lo = int(getattr(st, "lineno", 1) or 1)
+            hi = _stmt_end_lineno(st)
+            out.append((lo, hi, depth))
+            _collect_loop_intervals(st.body, depth, out)
+            if isinstance(st, ast.For):
+                _collect_loop_intervals(st.orelse, base_depth, out)
+            elif isinstance(st, ast.AsyncFor):
+                _collect_loop_intervals(st.orelse, base_depth, out)
+            elif isinstance(st, ast.While):
+                _collect_loop_intervals(st.orelse, base_depth, out)
+        elif isinstance(st, ast.If):
+            _collect_loop_intervals(st.body, base_depth, out)
+            _collect_loop_intervals(st.orelse, base_depth, out)
+        elif isinstance(st, ast.With):
+            _collect_loop_intervals(st.body, base_depth, out)
+        elif isinstance(st, ast.Try):
+            _collect_loop_intervals(st.body, base_depth, out)
+            for h in st.handlers:
+                _collect_loop_intervals(h.body, base_depth, out)
+            _collect_loop_intervals(st.orelse, base_depth, out)
+            _collect_loop_intervals(st.finalbody, base_depth, out)
+        elif sys.version_info >= (3, 10) and isinstance(st, ast.Match):
+            for case in st.cases:
+                _collect_loop_intervals(case.body, base_depth, out)
+        elif isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            _collect_loop_intervals(st.body, base_depth, out)
+
+
+def _per_line_loop_bounds(
+    target: ast.FunctionDef, intervals: list[tuple[int, int, int]]
+) -> dict[str, dict[str, Any]]:
+    """
+    Max enclosing loop depth per source line (1-based lineno in parsed block).
+
+    Keys are **0-based string indices** into ``textwrap.dedent(code).strip().splitlines()`` so they align
+    with Python harness ``line_info_total`` keys in ``analyzer_python``.
+    """
+    per_line: dict[str, dict[str, Any]] = {}
+    lo = int(getattr(target, "lineno", 1) or 1)
+    hi = _stmt_end_lineno(target)
+    for ln in range(lo, hi + 1):
+        max_d = 0
+        for s, e, d in intervals:
+            if s <= ln <= e:
+                max_d = max(max_d, d)
+        idx = ln - 1
+        per_line[str(idx)] = {
+            "max_loop_nesting": max_d,
+            "structural_bound_model": _structural_bound_model(max_d),
+        }
+    return per_line
+
+
 def analyze_python_static(code: str) -> dict[str, Any]:
     """
     Parse Python source and return structural hints.
@@ -126,8 +200,9 @@ def analyze_python_static(code: str) -> dict[str, Any]:
             "error": "No top-level function definition (def name(...)) found.",
         }
 
+    block = textwrap.dedent(code).strip()
     try:
-        tree = ast.parse(code)
+        tree = ast.parse(block)
     except SyntaxError as e:
         return {"ok": False, "language": "python", "error": str(e)}
 
@@ -171,13 +246,22 @@ def analyze_python_static(code: str) -> dict[str, Any]:
             "depth and call count, not only loop structure."
         )
 
+    structural_bound_model = _structural_bound_model(max_nest)
+
+    loop_intervals: list[tuple[int, int, int]] = []
+    _collect_loop_intervals(target.body, 0, loop_intervals)
+    per_line = _per_line_loop_bounds(target, loop_intervals)
+
     return {
         "ok": True,
         "language": "python",
         "function": target.name,
         "max_loop_nesting": max_nest,
+        "structural_bound_model": structural_bound_model,
         "for_loops": for_loops,
         "while_loops": while_loops,
         "recursion_direct": rec.seen,
         "hints": hints,
+        "per_line": per_line,
+        "per_line_indexing": "0_based_dedented_body",
     }

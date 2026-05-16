@@ -14,3 +14,19 @@ BIC_PARAMETER_PENALTY_GAMMA = 1.12
 
 # How repeated trials at the same (line, size) are collapsed for curve fitting.
 PER_SIZE_AGGREGATION = "median"
+
+# If the BIC gap (runner-up minus winner) is smaller than this, the pick is flagged ambiguous for UI.
+# Units match Gaussian BIC used in graph_fitting (same n across candidates).
+BIC_AMBIGUITY_MARGIN = 6.0
+
+# Teaching / classroom mode: only these growth families participate in BIC selection.
+TEACHING_MODEL_ALLOWLIST = frozenset(
+    {
+        "constant",
+        "logarithmic",
+        "linear",
+        "log_linear",
+        "quadratic",
+        "cubic",
+    }
+)
