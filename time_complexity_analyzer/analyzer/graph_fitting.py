@@ -1,5 +1,6 @@
 import ast
 import logging
+from typing import Optional
 
 import numpy as np
 from scipy.optimize import least_squares
@@ -410,7 +411,7 @@ def _safe_predict_model(model_name: str, params, xs: np.ndarray) -> np.ndarray:
         return np.asarray(out, dtype=float)
 
 
-def build_fit_series(x_data, y_data, best_fit) -> dict | None:
+def build_fit_series(x_data, y_data, best_fit) -> Optional[dict]:
     """
     JSON-serializable points: input size n, observed mean, fitted curve (same grid as fitting).
 

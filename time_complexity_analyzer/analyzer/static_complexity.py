@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import ast
 import re
-from typing import Any
+from typing import Any, Optional
 
 
-def _extract_python_function_name(code: str) -> str | None:
+def _extract_python_function_name(code: str) -> Optional[str]:
     m = re.search(r"def\s+(\w+)\s*\(", code)
     return m.group(1) if m else None
 
@@ -130,7 +130,7 @@ def analyze_python_static(code: str) -> dict[str, Any]:
     except SyntaxError as e:
         return {"ok": False, "language": "python", "error": str(e)}
 
-    target: ast.FunctionDef | None = None
+    target: Optional[ast.FunctionDef] = None
     for node in tree.body:
         if isinstance(node, ast.FunctionDef) and node.name == fn:
             target = node
