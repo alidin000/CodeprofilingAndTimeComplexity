@@ -1,3 +1,4 @@
+# CI and local dev target: Python 3.12 (see .github/workflows/ci-pipeline.yml, .python-version)
 Django>=4.2,<6.0
 djangorestframework>=3.14,<4.0
 psycopg2-binary>=2.8
