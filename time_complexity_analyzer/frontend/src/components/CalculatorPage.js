@@ -343,6 +343,10 @@ function CalculatorPage() {
         setError(
           "Sign in or create an account to run analysis. If you self-host the API, set TCA_ALLOW_ANONYMOUS_ANALYSIS=true (default) or DEBUG=true, then restart Django."
         );
+      } else if (err.response?.status === 404) {
+        setError(
+          "API returned 404 (not found). On split hosting (e.g. Render static site + separate API), set REACT_APP_API_URL to your Django base URL when building the frontend (example: https://your-api.onrender.com with no trailing /api), redeploy the static site, and confirm the API service is running."
+        );
       } else {
         setError(err.message || "Can't calculate it. Please check your code and try again.");
       }

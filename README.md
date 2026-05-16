@@ -16,6 +16,16 @@ Web app for **wall-clock profiling**, **growth-curve fitting**, and **learning c
 
 Environment variables for Django live in `time_complexity_analyzer/time_complexity_analyzer/settings.py` (e.g. `DJANGO_SECRET_KEY`). Use a real secret in production.
 
+### Render.com (split static site + API)
+
+The UI calls Django under **`/api/...`**. Those routes exist on the **API** service only.
+
+1. On the **static site** build, set **`REACT_APP_API_URL`** to your API’s public origin, e.g. `https://your-time-complexity-api.onrender.com` (no `/api` suffix). See `time_complexity_analyzer/frontend/.env.production.example`.
+2. **Rebuild** the static site so Create React App inlines the variable (build-time only).
+3. Keep the **web/API** service running.
+
+If `REACT_APP_API_URL` is missing, production builds default the API base to the **static site’s origin**; `POST /api/analyse-code/...` then hits the CDN and often returns **404**. You can also set `window.__TCA_API_BASE__` before the app bundle loads (see `frontend/src/components/Axios.js`).
+
 ---
 
 ## Stack (high level)
