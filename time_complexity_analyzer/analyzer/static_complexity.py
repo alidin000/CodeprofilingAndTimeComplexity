@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import re
+import sys
 from typing import Any, Optional
 
 
@@ -40,7 +41,7 @@ def _max_loop_nesting_in_body(body: list[ast.stmt], base: int = 0) -> int:
                 best = max(best, _max_loop_nesting_in_body(h.body, base))
             best = max(best, _max_loop_nesting_in_body(st.orelse, base))
             best = max(best, _max_loop_nesting_in_body(st.finalbody, base))
-        elif isinstance(st, ast.Match):
+        elif sys.version_info >= (3, 10) and isinstance(st, ast.Match):
             for case in st.cases:
                 best = max(best, _max_loop_nesting_in_body(case.body, base))
         elif isinstance(st, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -87,7 +88,7 @@ def _count_loops_in_body(body: list[ast.stmt]) -> tuple[int, int]:
                 fb, wb = _count_loops_in_body(h.body)
                 fors += fb
                 whiles += wb
-        elif isinstance(st, ast.Match):
+        elif sys.version_info >= (3, 10) and isinstance(st, ast.Match):
             for case in st.cases:
                 fb, wb = _count_loops_in_body(case.body)
                 fors += fb
