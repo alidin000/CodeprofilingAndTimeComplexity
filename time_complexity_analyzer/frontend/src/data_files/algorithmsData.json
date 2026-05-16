@@ -1,7 +1,7 @@
 [
   {
     "name": "Insertion Sort",
-    "description": "Insertion Sort is a simple sorting algorithm that builds the final sorted array one item at a time. It is less efficient on large lists than more advanced algorithms such as quicksort, heapsort, or merge sort. [Learn more](https://en.wikipedia.org/wiki/Insertion_sort)",
+    "description": "Insertion sort keeps a sorted prefix on the left; each new element scans backward, shifting larger keys right until it slots in.\n\nBest case O(n) when the input is already sorted. Average and worst case are O(n^2) because each insertion may walk the whole prefix. Stable and in-place with O(1) extra space—ideal for tiny arrays, nearly sorted windows, and as the base case in timsort-style hybrids. [Learn more](https://en.wikipedia.org/wiki/Insertion_sort)",
     "code": {
       "python": "def insertionSort(arr):\n    for i in range(1, len(arr)):\n        key = arr[i]\n        j = i-1\n        while j >=0 and key < arr[j]:\n                arr[j+1] = arr[j]\n                j -= 1\n        arr[j+1] = key\n    return arr",
       "c++": "void insertionSort(int arr[], int n) {\n    for (int i = 1; i < n; i++) {\n        int key = arr[i];\n        int j = i - 1;\n        while (j >= 0 && arr[j] > key) {\n            arr[j + 1] = arr[j];\n            j = j - 1;\n        }\n        arr[j + 1] = key;\n    }\n}",
@@ -10,35 +10,55 @@
     "video": "<iframe width=\"900\" height=\"500\" src=\"https://www.youtube.com/embed/8oJS1BMKE64?list=PLZh3kxyHrVp_AcOanN_jpuQbcMVdXbqei\" title=\"Insertion Sort\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>",
     "quiz": [
       {
-        "question": "What type of sorting algorithm is Insertion Sort?",
-        "options": ["Insertion Sort is a comparison-based sorting algorithm.", "Insertion Sort is a distribution-based sorting algorithm.", "Insertion Sort is a non-comparison-based sorting algorithm."],
-        "answer": "Insertion Sort is a comparison-based sorting algorithm."
+        "question": "Which classification best fits this sorting algorithm?",
+        "options": [
+          "Comparison-based (order decided by comparing keys)",
+          "Distribution-based (e.g. radix or bucket style binning)",
+          "Non-comparison-based (e.g. counting sort on bounded integers)"
+        ],
+        "answer": "Comparison-based (order decided by comparing keys)"
       },
       {
         "question": "What is the best case time complexity of Insertion Sort?",
-        "options": ["O(n^2)", "O(n log n)", "O(n)"],
+        "options": [
+          "O(n^2)",
+          "O(n log n)",
+          "O(n)"
+        ],
         "answer": "O(n)"
       },
       {
         "question": "What is the worst case time complexity of Insertion Sort?",
-        "options": ["O(n^2)", "O(n log n)", "O(n)"],
+        "options": [
+          "O(n^2)",
+          "O(n log n)",
+          "O(n)"
+        ],
         "answer": "O(n^2)"
       },
       {
         "question": "In which scenario is Insertion Sort most efficient?",
-        "options": ["When the array is large and unsorted", "When the array is small and nearly sorted", "When the array contains random elements"],
+        "options": [
+          "When the array is large and unsorted",
+          "When the array is small and nearly sorted",
+          "When the array contains random elements"
+        ],
         "answer": "When the array is small and nearly sorted"
       },
       {
         "question": "Does Insertion Sort work well with linked lists?",
-        "options": ["Yes, it works well with linked lists", "No, it is not suitable for linked lists", "It can work but not efficiently"],
+        "options": [
+          "Yes, it works well with linked lists",
+          "No, it is not suitable for linked lists",
+          "It can work but not efficiently"
+        ],
         "answer": "Yes, it works well with linked lists"
       }
     ]
   },
   {
     "name": "Selection Sort",
-    "description": "Selection Sort is an in-place comparison-based algorithm in which the list is divided into two parts: the sorted part at the left end and the unsorted part at the right end. Initially, the sorted part is empty and the unsorted part is the entire list. [Learn more](https://en.wikipedia.org/wiki/Selection_sort)",
+    "description": "Selection sort repeatedly chooses the smallest remaining element and swaps it into the next free slot of the sorted prefix.\n\nTime is Theta(n^2) comparisons in every case, so unlike insertion sort you do not get an easy best-case speedup on sorted data. It uses O(1) extra memory but is unstable in the usual swap-based form. Mostly a teaching baseline. [Learn more](https://en.wikipedia.org/wiki/Selection_sort)",
     "code": {
       "python": "def selectionSort(arr):\n    for i in range(len(arr)):\n        min_idx = i\n        for j in range(i+1, len(arr)):\n            if arr[min_idx] > arr[j]:\n                min_idx = j\n        arr[i], arr[min_idx] = arr[min_idx], arr[i]\n    return arr",
       "c++": "void selectionSort(int arr[], int n) {\n    for (int i = 0; i < n-1; i++) {\n        int min_idx = i;\n        for (int j = i+1; j < n; j++)\n            if (arr[j] < arr[min_idx])\n                min_idx = j;\n        int temp = arr[min_idx];\n        arr[min_idx] = arr[i];\n        arr[i] = temp;\n    }\n}",
@@ -47,35 +67,54 @@
     "video": "<iframe width=\"900\" height=\"500\" src=\"https://www.youtube.com/embed/92BfuxHn2XE?list=PLZh3kxyHrVp_AcOanN_jpuQbcMVdXbqei\" title=\"Selection Sort\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>",
     "quiz": [
       {
-        "question": "What type of algorithm is Selection Sort?",
-        "options": ["Selection Sort is a comparison-based sorting algorithm.", "Selection Sort is a distribution-based sorting algorithm.", "Selection Sort is a non-comparison-based sorting algorithm."],
-        "answer": "Selection Sort is a comparison-based sorting algorithm."
+        "question": "Which classification best fits this sorting algorithm?",
+        "options": [
+          "Comparison-based (order decided by comparing keys)",
+          "Distribution-based (e.g. radix or bucket style binning)",
+          "Non-comparison-based (e.g. counting sort on bounded integers)"
+        ],
+        "answer": "Comparison-based (order decided by comparing keys)"
       },
       {
         "question": "What is the time complexity of Selection Sort in all cases?",
-        "options": ["O(n)", "O(n log n)", "O(n^2)"],
+        "options": [
+          "O(n)",
+          "O(n log n)",
+          "O(n^2)"
+        ],
         "answer": "O(n^2)"
       },
       {
         "question": "What is the main disadvantage of Selection Sort?",
-        "options": ["It is very complex to implement", "It has high time complexity", "It requires additional memory space"],
+        "options": [
+          "It is very complex to implement",
+          "It has high time complexity",
+          "It requires additional memory space"
+        ],
         "answer": "It has high time complexity"
       },
       {
         "question": "Is Selection Sort a stable sorting algorithm?",
-        "options": ["Yes", "No"],
+        "options": [
+          "Yes",
+          "No"
+        ],
         "answer": "No"
       },
       {
         "question": "What is the best case time complexity of Selection Sort?",
-        "options": ["O(n)", "O(n log n)", "O(n^2)"],
+        "options": [
+          "O(n)",
+          "O(n log n)",
+          "O(n^2)"
+        ],
         "answer": "O(n^2)"
       }
     ]
   },
   {
     "name": "Heap Sort",
-    "description": "Heap Sort is a comparison-based sorting technique based on a Binary Heap data structure. It is similar to selection sort where we first find the maximum element and place it at the end. This process is repeated for the remaining elements. [Learn more](https://en.wikipedia.org/wiki/Heapsort)",
+    "description": "Heap sort builds a binary heap, repeatedly extracts the extremum (max or min) to the end of the array, then heapifies the shrinking prefix.\n\nGuaranteed O(n log n) time and O(1) auxiliary space—strong when you cannot afford merge sorts O(n) buffer. Not stable; constant factors are often higher than quicksort on random arrays. [Learn more](https://en.wikipedia.org/wiki/Heapsort)",
     "code": {
       "python": "def heapSort(arr):\n    def heapify(arr, n, i):\n        largest = i\n        l = 2 * i + 1\n        r = 2 * i + 2\n\n        if l < n and arr[l] > arr[largest]:\n            largest = l\n\n        if r < n and arr[r] > arr[largest]:\n            largest = r\n\n        if largest != i:\n            arr[i], arr[largest] = arr[largest], arr[i]\n            heapify(arr, n, largest)\n\n    n = len(arr)\n    for i in range(n // 2 - 1, -1, -1):\n        heapify(arr, n, i)\n\n    for i in range(n-1, 0, -1):\n        arr[0], arr[i] = arr[i], arr[0]\n        heapify(arr, n-i, 0)\n    return arr",
       "c++": "void heapSort(int arr[], int n) {\n    auto heapify = [&](int arr[], int n, int i) {\n        int largest = i;\n        int l = 2 * i + 1;\n        int r = 2 * i + 2;\n\n        if (l < n && arr[l] > arr[largest])\n            largest = l;\n        if (r < n && arr[r] > arr[largest])\n            largest = r;\n\n        if (largest != i) {\n            std::swap(arr[i], arr[largest]);\n            heapify(arr, n, largest);\n        }\n    };\n\n    for (int i = n / 2 - 1; i >= 0; i--)\n        heapify(arr, n, i);\n    for (int i = n - 1; i > 0; i--) {\n        std::swap(arr[0], arr[i]);\n        heapify(arr, i, 0);\n    }\n}",
@@ -84,35 +123,54 @@
     "video": "<iframe width=\"900\" height=\"500\" src=\"https://www.youtube.com/embed/_bkow6IykGM?list=PLZh3kxyHrVp_AcOanN_jpuQbcMVdXbqei\" title=\"Heap Sort\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>",
     "quiz": [
       {
-        "question": "What type of sorting algorithm is Heap Sort?",
-        "options": ["Heap Sort is a comparison-based sorting algorithm that uses a binary heap data structure.", "Heap Sort is a distribution-based sorting algorithm.", "Heap Sort is a non-comparison-based sorting algorithm."],
-        "answer": "Heap Sort is a comparison-based sorting algorithm that uses a binary heap data structure."
+        "question": "Which classification best fits this sorting algorithm?",
+        "options": [
+          "Comparison-based (order decided by comparing keys)",
+          "Distribution-based (e.g. radix or bucket style binning)",
+          "Non-comparison-based (e.g. counting sort on bounded integers)"
+        ],
+        "answer": "Comparison-based (order decided by comparing keys)"
       },
       {
         "question": "What is the time complexity of Heap Sort?",
-        "options": ["O(n)", "O(n log n)", "O(n^2)"],
+        "options": [
+          "O(n)",
+          "O(n log n)",
+          "O(n^2)"
+        ],
         "answer": "O(n log n)"
       },
       {
         "question": "Is Heap Sort a stable sorting algorithm?",
-        "options": ["Yes", "No"],
+        "options": [
+          "Yes",
+          "No"
+        ],
         "answer": "No"
       },
       {
         "question": "What is the space complexity of Heap Sort?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "What kind of data structure does Heap Sort use?",
-        "options": ["Array", "Binary Heap", "Linked List"],
+        "options": [
+          "Array",
+          "Binary Heap",
+          "Linked List"
+        ],
         "answer": "Binary Heap"
       }
     ]
   },
   {
     "name": "Bubble Sort",
-    "description": "Bubble Sort is a simple sorting algorithm that repeatedly steps through the list, compares adjacent elements and swaps them if they are in the wrong order. The pass through the list is repeated until the list is sorted. [Learn more](https://en.wikipedia.org/wiki/Bubble_sort)",
+    "description": "Bubble sort walks the array, swapping adjacent out-of-order pairs until a full pass makes no swaps.\n\nWorst and average time O(n^2). With an early-exit flag, best case can be O(n) on already sorted input. Rare in production but useful to contrast with insertion sort in the Analyzer on nearly sorted vs random data. [Learn more](https://en.wikipedia.org/wiki/Bubble_sort)",
     "code": {
       "python": "def bubbleSort(arr):\n    n = len(arr)\n    for i in range(n-1):\n        for j in range(0, n-i-1):\n            if arr[j] > arr[j+1]:\n                arr[j], arr[j+1] = arr[j+1], arr[j]\n    return arr",
       "c++": "void bubbleSort(int arr[], int n) {\n    for (int i = 0; i < n-1; i++)\n        for (int j = 0; j < n-i-1; j++)\n            if (arr[j] > arr[j+1])\n                std::swap(arr[j], arr[j+1]);\n}",
@@ -121,35 +179,54 @@
     "video": "<iframe width=\"900\" height=\"500\" src=\"https://www.youtube.com/embed/Cq7SMsQBEUw?list=PLZh3kxyHrVp_AcOanN_jpuQbcMVdXbqei\" title=\"Bubble Sort\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>",
     "quiz": [
       {
-        "question": "What type of algorithm is Bubble Sort?",
-        "options": ["Bubble Sort is a comparison-based sorting algorithm.", "Bubble Sort is a distribution-based sorting algorithm.", "Bubble Sort is a non-comparison-based sorting algorithm."],
-        "answer": "Bubble Sort is a comparison-based sorting algorithm."
+        "question": "Which classification best fits this sorting algorithm?",
+        "options": [
+          "Comparison-based (order decided by comparing keys)",
+          "Distribution-based (e.g. radix or bucket style binning)",
+          "Non-comparison-based (e.g. counting sort on bounded integers)"
+        ],
+        "answer": "Comparison-based (order decided by comparing keys)"
       },
       {
         "question": "What is the time complexity of Bubble Sort in the worst case?",
-        "options": ["O(n)", "O(n log n)", "O(n^2)"],
+        "options": [
+          "O(n)",
+          "O(n log n)",
+          "O(n^2)"
+        ],
         "answer": "O(n^2)"
       },
       {
         "question": "Is Bubble Sort a stable sorting algorithm?",
-        "options": ["Yes", "No"],
+        "options": [
+          "Yes",
+          "No"
+        ],
         "answer": "Yes"
       },
       {
         "question": "What is the space complexity of Bubble Sort?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "What kind of data structure does Bubble Sort use?",
-        "options": ["Array", "Binary Heap", "Linked List"],
+        "options": [
+          "Array",
+          "Binary Heap",
+          "Linked List"
+        ],
         "answer": "Array"
       }
     ]
   },
   {
     "name": "Quick Sort",
-    "description": "Quick Sort is an efficient sorting algorithm, serving as a systematic method for placing the elements of an array in order. Developed by Tony Hoare, it works by partitioning an array into two sub-arrays, then sorting the sub-arrays independently. [Learn more](https://en.wikipedia.org/wiki/Quicksort)",
+    "description": "Quick sort partitions the array around a pivot so keys smaller than the pivot move left and larger keys move right, then recurses on both sides.\n\nAverage O(n log n) time with O(log n) stack depth when partitions are balanced; worst O(n^2) if pivots are always min or max (e.g. sorted input with naive pivot choice). Typically unstable; real libraries randomize pivots or use median-of-three. [Learn more](https://en.wikipedia.org/wiki/Quicksort)",
     "code": {
       "python": "def quickSort(arr):\n    if len(arr) <= 1:\n        return arr\n    pivot = arr[len(arr) // 2]\n    left = [x for x in arr if x < pivot]\n    middle = [x for x in arr if x == pivot]\n    right = [x for x in arr if x > pivot]\n    return quickSort(left) + middle + quickSort(right)",
       "c++": "int partition (int arr[], int low, int high) {\n    int pivot = arr[high];\n    int i = (low - 1);\n    for (int j = low; j <= high-1; j++) {\n        if (arr[j] < pivot) {\n            i++;\n            std::swap(arr[i], arr[j]);\n        }\n    }\n    std::swap(arr[i + 1], arr[high]);\n    return (i + 1);\n}\n\nvoid quickSort(int arr[], int low, int high) {\n    if (low < high) {\n        int pi = partition(arr, low, high);\n        quickSort(arr, low, pi - 1);\n        quickSort(arr, pi + 1, high);\n    }\n}",
@@ -159,34 +236,53 @@
     "quiz": [
       {
         "question": "What is the average time complexity of Quick Sort?",
-        "options": ["O(n^2)", "O(n log n)", "O(n)"],
+        "options": [
+          "O(n^2)",
+          "O(n log n)",
+          "O(n)"
+        ],
         "answer": "O(n log n)"
       },
       {
         "question": "What is the key concept behind Quick Sort?",
-        "options": ["Merging sorted arrays", "Partitioning the array around a pivot element", "Repeatedly swapping adjacent elements"],
+        "options": [
+          "Merging sorted arrays",
+          "Partitioning the array around a pivot element",
+          "Repeatedly swapping adjacent elements"
+        ],
         "answer": "Partitioning the array around a pivot element"
       },
       {
         "question": "Is Quick Sort a stable sorting algorithm?",
-        "options": ["Yes", "No"],
+        "options": [
+          "Yes",
+          "No"
+        ],
         "answer": "No"
       },
       {
         "question": "What is the worst-case time complexity of Quick Sort?",
-        "options": ["O(n log n)", "O(n^2)", "O(n)"],
+        "options": [
+          "O(n log n)",
+          "O(n^2)",
+          "O(n)"
+        ],
         "answer": "O(n^2)"
       },
       {
         "question": "What is the space complexity of Quick Sort?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(log n)"
       }
     ]
   },
   {
     "name": "Merge Sort",
-    "description": "Merge Sort is an efficient, stable, comparison-based, divide and conquer sorting algorithm. Most implementations produce a stable sort, meaning that the implementation preserves the input order of equal elements in the sorted output. [Learn more](https://en.wikipedia.org/wiki/Merge_sort)",
+    "description": "Merge sort splits the sequence in half, recursively sorts each half, then merges two sorted runs in linear time.\n\nStable, predictable O(n log n) time, but requires O(n) auxiliary space for the merge buffer—common trade-off when stability or worst-case guarantees matter. [Learn more](https://en.wikipedia.org/wiki/Merge_sort)",
     "code": {
       "python": "def mergeSort(arr):\n    if len(arr) > 1:\n        mid = len(arr)//2\n        L = arr[:mid]\n        R = arr[mid:]\n        mergeSort(L)\n        mergeSort(R)\n        i = j = k = 0\n        while i < len(L) and j < len(R):\n            if L[i] < R[j]:\n                arr[k] = L[i]\n                i += 1\n            else:\n                arr[k] = R[j]\n                j += 1\n            k += 1\n        while i < len(L):\n            arr[k] = L[i]\n            i += 1\n            k += 1\n        while j < len(R):\n            arr[k] = R[j]\n            j += 1\n            k += 1\n    return arr",
       "c++": "void merge(int arr[], int l, int m, int r) {\n    int n1 = m - l + 1;\n    int n2 = r - m;\n    int L[n1], R[n2];\n    for (int i = 0; i < n1; i++)\n        L[i] = arr[l + i];\n    for (int j = 0; j < n2; j++)\n        R[j] = arr[m + 1 + j];\n    int i = 0, j = 0, k = l;\n    while (i < n1 && j < n2) {\n        if (L[i] <= R[j]) {\n            arr[k] = L[i];\n            i++;\n        }\n        else {\n            arr[k] = R[j];\n            j++;\n        }\n        k++;\n    }\n    while (i < n1) {\n        arr[k] = L[i];\n        i++;\n        k++;\n    }\n    while (j < n2) {\n        arr[k] = R[j];\n        j++;\n        k++;\n    }\n}\n\nvoid mergeSort(int arr[], int l, int r) {\n    if (l < r) {\n        int m = l + (r - l) / 2;\n        mergeSort(arr, l, m);\n        mergeSort(arr, m + 1, r);\n        merge(arr, l, m, r);\n    }\n}",
@@ -195,35 +291,54 @@
     "video": "<iframe width='900' height='500' src='https://www.youtube.com/embed/ZRPoEKHXTJg?list=PLZh3kxyHrVp_AcOanN_jpuQbcMVdXbqei' title='Merge Sort' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share' referrerpolicy='strict-origin-when-cross-origin' allowfullscreen></iframe>",
     "quiz": [
       {
-        "question": "What type of algorithm is Merge Sort?",
-        "options": ["Merge Sort is a comparison-based sorting algorithm.", "Merge Sort is a distribution-based sorting algorithm.", "Merge Sort is a non-comparison-based sorting algorithm."],
-        "answer": "Merge Sort is a comparison-based sorting algorithm."
+        "question": "Which classification best fits this sorting algorithm?",
+        "options": [
+          "Comparison-based (order decided by comparing keys)",
+          "Distribution-based (e.g. radix or bucket style binning)",
+          "Non-comparison-based (e.g. counting sort on bounded integers)"
+        ],
+        "answer": "Comparison-based (order decided by comparing keys)"
       },
       {
         "question": "What is the time complexity of Merge Sort?",
-        "options": ["O(n^2)", "O(n log n)", "O(n)"],
+        "options": [
+          "O(n^2)",
+          "O(n log n)",
+          "O(n)"
+        ],
         "answer": "O(n log n)"
       },
       {
         "question": "Is Merge Sort a stable sorting algorithm?",
-        "options": ["Yes", "No"],
+        "options": [
+          "Yes",
+          "No"
+        ],
         "answer": "Yes"
       },
       {
         "question": "What is the space complexity of Merge Sort?",
-        "options": ["O(1)", "O(n log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(n log n)",
+          "O(n)"
+        ],
         "answer": "O(n)"
       },
       {
         "question": "What kind of data structure does Merge Sort use?",
-        "options": ["Array", "Binary Heap", "Linked List"],
+        "options": [
+          "Array",
+          "Binary Heap",
+          "Linked List"
+        ],
         "answer": "Array"
       }
     ]
   },
   {
     "name": "Linked List",
-    "description": "A Linked List is a linear data structure in which elements are stored in nodes, and each node contains a reference (or link) to the next node in the sequence. Linked lists are dynamic and can easily grow and shrink in size by allocating and deallocating memory during runtime. [Learn more](https://en.wikipedia.org/wiki/Linked_list)",
+    "description": "A linked list stores elements in nodes chained by pointers instead of contiguous slots.\n\nInsert or delete at a known node position is O(1); finding a value by key is O(n) without extra indexing. Arrays give better cache locality; lists avoid shifting and resizing costs. Doubly linked variants add a prev pointer for O(1) deletion between nodes. [Learn more](https://en.wikipedia.org/wiki/Linked_list)",
     "code": {
       "python": "class Node:\n    def __init__(self, data):\n        self.data = data\n        self.next = None\n\nclass LinkedList:\n    def __init__(self):\n        self.head = None\n\n    def insert(self, data):\n        new_node = Node(data)\n        new_node.next = self.head\n        self.head = new_node",
       "c++": "class Node {\npublic:\n    int data;\n    Node* next;\n    Node(int data) {\n        this->data = data;\n        this->next = nullptr;\n    }\n};\n\nclass LinkedList {\npublic:\n    Node* head;\n    LinkedList() { head = nullptr; }\n\n    void insert(int data) {\n        Node* new_node = new Node(data);\n        new_node->next = head;\n        head = new_node;\n    }\n};",
@@ -233,34 +348,54 @@
     "quiz": [
       {
         "question": "What is a Linked List?",
-        "options": ["A data structure consisting of nodes that contain data and a reference to the next node.", "A data structure consisting of a sequence of elements in a fixed order.", "A data structure used to store key-value pairs."],
+        "options": [
+          "A data structure consisting of nodes that contain data and a reference to the next node.",
+          "A data structure consisting of a sequence of elements in a fixed order.",
+          "A data structure used to store key-value pairs."
+        ],
         "answer": "A data structure consisting of nodes that contain data and a reference to the next node."
       },
       {
         "question": "What is the time complexity of inserting an element at the beginning of a Linked List?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "What is the time complexity of searching an element in a Linked List?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(n)"
       },
       {
         "question": "What is the main advantage of a Linked List over an array?",
-        "options": ["Fixed size", "Faster access time", "Dynamic size"],
+        "options": [
+          "Fixed size",
+          "Faster access time",
+          "Dynamic size"
+        ],
         "answer": "Dynamic size"
       },
       {
         "question": "What is a major drawback of Linked Lists?",
-        "options": ["High memory usage", "Fixed size", "Slow insertion"],
+        "options": [
+          "High memory usage",
+          "Fixed size",
+          "Slow insertion"
+        ],
         "answer": "High memory usage"
       }
     ]
   },
   {
     "name": "Binary Search Tree (BST)",
-    "description": "A Binary Search Tree (BST) is a node-based binary tree data structure which has the following properties: the left subtree of a node contains only nodes with keys lesser than the node’s key, the right subtree contains only nodes with keys greater than the node’s key, and both the left and right subtrees must also be binary search trees. [Learn more](https://en.wikipedia.org/wiki/Binary_search_tree)",
+    "description": "A BST is a binary tree where every node obeys the ordering invariant: left subtree keys are strictly smaller, right subtree keys are larger.\n\nSearch, insert, and delete follow one root-to-leaf path, costing O(h) for height h—O(log n) when the tree stays balanced, O(n) if keys arrive sorted without rebalancing. In-order traversal visits keys in sorted order. [Learn more](https://en.wikipedia.org/wiki/Binary_search_tree)",
     "code": {
       "python": "class Node:\n    def __init__(self, key):\n        self.left = None\n        self.right = None\n        self.val = key\n\n    def insert(self, key):\n        if self.val:\n            if key < self.val:\n                if self.left is None:\n                    self.left = Node(key)\n                else:\n                    self.left.insert(key)\n            elif key > self.val:\n                if self.right is None:\n                    self.right = Node(key)\n                else:\n                    self.right.insert(key)\n        else:\n            self.val = key",
       "c++": "class Node {\npublic:\n    int key;\n    Node* left, *right;\n    Node(int item) {\n        key = item;\n        left = right = nullptr;\n    }\n};\n\nclass BST {\npublic:\n    Node* root;\n    BST() { root = nullptr; }\n\n    void insert(int key) {\n        root = insertRec(root, key);\n    }\n\nprivate:\n    Node* insertRec(Node* root, int key) {\n        if (root == nullptr) {\n            root = new Node(key);\n            return root;\n        }\n        if (key < root->key)\n            root->left = insertRec(root->left, key);\n        else if (key > root->key)\n            root->right = insertRec(root->right, key);\n        return root;\n    }\n};",
@@ -269,35 +404,54 @@
     "video": "<iframe width=\"900\" height=\"500\" src=\"https://www.youtube.com/embed/ymGjUOiR8Jg?list=PLFonK3OU1E4qVvtRGBSL0xtXOmzZkLy8x\" title=\"Binary Search Tree Animations | Data Structure | Visual How\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" referrerpolicy=\"strict-origin-when-cross-origin\" allowfullscreen></iframe>",
     "quiz": [
       {
-        "question": "What is a Binary Search Tree (BST)?",
-        "options": ["A tree data structure in which each node has at most two children, which are referred to as the left child and the right child.", "A linear data structure where elements are stored in a sequential manner.", "A tree data structure used for hash tables."],
-        "answer": "A tree data structure in which each node has at most two children, which are referred to as the left child and the right child."
+        "question": "Which invariant defines a binary search tree (BST)?",
+        "options": [
+          "Each node has at most two children",
+          "For every node, left subtree keys are smaller and right subtree keys are larger",
+          "All leaves appear at the same depth"
+        ],
+        "answer": "For every node, left subtree keys are smaller and right subtree keys are larger"
       },
       {
         "question": "What is the time complexity of searching an element in a Binary Search Tree?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(log n)"
       },
       {
         "question": "What is the time complexity of inserting an element in a Binary Search Tree?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(log n)"
       },
       {
         "question": "Is a Binary Search Tree a balanced tree?",
-        "options": ["Yes", "No"],
+        "options": [
+          "Yes",
+          "No"
+        ],
         "answer": "No"
       },
       {
         "question": "What is the worst-case time complexity of searching in a Binary Search Tree?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(n)"
       }
     ]
   },
   {
     "name": "Stack",
-    "description": "A Stack is a linear data structure that follows the LIFO (Last In, First Out) principle, where elements are added and removed from the same end. It can be implemented using arrays or linked lists. [Learn more](https://en.wikipedia.org/wiki/Stack_(abstract_data_type))",
+    "description": "A stack is a last-in, first-out (LIFO) collection: push adds on top, pop removes the most recent item.\n\nArray-backed or linked implementations give amortized O(1) push and pop. Classic uses include DFS, undo stacks, and evaluating postfix expressions. [Learn more](https://en.wikipedia.org/wiki/Stack_(abstract_data_type))",
     "code": {
       "python": "class Stack:\n    def __init__(self):\n        self.stack = []\n\n    def push(self, item):\n        self.stack.append(item)\n\n    def pop(self):\n        if not self.is_empty():\n            return self.stack.pop()\n\n    def is_empty(self):\n        return len(self.stack) == 0\n\n    def peek(self):\n        if not self.is_empty():\n            return self.stack[-1]\n\n    def size(self):\n        return len(self.stack)",
       "c++": "#include <iostream>\n#include <vector>\n\nclass Stack {\nprivate:\n    std::vector<int> stack;\npublic:\n    void push(int item) {\n        stack.push_back(item);\n    }\n\n    int pop() {\n        if (!is_empty()) {\n            int item = stack.back();\n            stack.pop_back();\n            return item;\n        }\n        return -1; // Stack is empty\n    }\n\n    bool is_empty() {\n        return stack.empty();\n    }\n\n    int peek() {\n        if (!is_empty()) {\n            return stack.back();\n        }\n        return -1; // Stack is empty\n    }\n\n    int size() {\n        return stack.size();\n    }\n};",
@@ -307,34 +461,55 @@
     "quiz": [
       {
         "question": "What is a Stack?",
-        "options": ["A linear data structure that follows the LIFO (Last In, First Out) principle.", "A linear data structure that follows the FIFO (First In, First Out) principle.", "A non-linear data structure used for hierarchical data."],
+        "options": [
+          "A linear data structure that follows the LIFO (Last In, First Out) principle.",
+          "A linear data structure that follows the FIFO (First In, First Out) principle.",
+          "A non-linear data structure used for hierarchical data."
+        ],
         "answer": "A linear data structure that follows the LIFO (Last In, First Out) principle."
       },
       {
         "question": "What is the time complexity of push operation in a Stack?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "What is the time complexity of pop operation in a Stack?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "Which operation is not possible directly in a Stack?",
-        "options": ["Push", "Pop", "Peek", "Traverse"],
+        "options": [
+          "Push",
+          "Pop",
+          "Peek",
+          "Traverse"
+        ],
         "answer": "Traverse"
       },
       {
         "question": "Which data structure can be used to implement recursion?",
-        "options": ["Queue", "Stack", "Linked List"],
+        "options": [
+          "Queue",
+          "Stack",
+          "Linked List"
+        ],
         "answer": "Stack"
       }
     ]
   },
   {
     "name": "Queue",
-    "description": "A Queue is a linear data structure that follows the FIFO (First In, First Out) principle, where elements are added at the rear and removed from the front. It can be implemented using arrays or linked lists. [Learn more](https://en.wikipedia.org/wiki/Queue_(abstract_data_type))",
+    "description": "A queue is first-in, first-out (FIFO): enqueue at the rear, dequeue from the front.\n\nRing buffers or linked structures keep both ends O(1). Breadth-first search, schedulers, and buffering pipelines map naturally to queues. [Learn more](https://en.wikipedia.org/wiki/Queue_(abstract_data_type))",
     "code": {
       "python": "class Queue:\n    def __init__(self):\n        self.queue = []\n\n    def enqueue(self, item):\n        self.queue.append(item)\n\n    def dequeue(self):\n        if not self.is_empty():\n            return self.queue.pop(0)\n\n    def is_empty(self):\n        return len(self.queue) == 0\n\n    def peek(self):\n        if not self.is_empty():\n            return self.queue[0]\n\n    def size(self):\n        return len(self.queue)",
       "c++": "#include <iostream>\n#include <deque>\n\nclass Queue {\nprivate:\n    std::deque<int> queue;\npublic:\n    void enqueue(int item) {\n        queue.push_back(item);\n    }\n\n    int dequeue() {\n        if (!is_empty()) {\n            int item = queue.front();\n            queue.pop_front();\n            return item;\n        }\n        return -1; // Queue is empty\n    }\n\n    bool is_empty() {\n        return queue.empty();\n    }\n\n    int peek() {\n        if (!is_empty()) {\n            return queue.front();\n        }\n        return -1; // Queue is empty\n    }\n\n    int size() {\n        return queue.size();\n    }\n};",
@@ -344,34 +519,55 @@
     "quiz": [
       {
         "question": "What is a Queue?",
-        "options": ["A linear data structure that follows the LIFO (Last In, First Out) principle.", "A linear data structure that follows the FIFO (First In, First Out) principle.", "A non-linear data structure used for hierarchical data."],
+        "options": [
+          "A linear data structure that follows the LIFO (Last In, First Out) principle.",
+          "A linear data structure that follows the FIFO (First In, First Out) principle.",
+          "A non-linear data structure used for hierarchical data."
+        ],
         "answer": "A linear data structure that follows the FIFO (First In, First Out) principle."
       },
       {
         "question": "What is the time complexity of enqueue operation in a Queue?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "What is the time complexity of dequeue operation in a Queue?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "Which operation is not possible directly in a Queue?",
-        "options": ["Enqueue", "Dequeue", "Peek", "Traverse"],
+        "options": [
+          "Enqueue",
+          "Dequeue",
+          "Peek",
+          "Traverse"
+        ],
         "answer": "Traverse"
       },
       {
         "question": "Which data structure can be used to implement a printer's task scheduling?",
-        "options": ["Stack", "Queue", "Linked List"],
+        "options": [
+          "Stack",
+          "Queue",
+          "Linked List"
+        ],
         "answer": "Queue"
       }
     ]
   },
   {
     "name": "Priority Queue",
-    "description": "A Priority Queue is an abstract data type similar to a regular queue or stack data structure, but where each element has a priority. Elements with higher priority are dequeued before elements with lower priority. [Learn more](https://en.wikipedia.org/wiki/Priority_queue)",
+    "description": "A priority queue always exposes the highest-priority element next, independent of insertion order.\n\nBinary heaps are the usual implementation: insert and delete-min/max in O(log n), peek in O(1). Heaps enforce parent-child order only—not a fully sorted sequence. [Learn more](https://en.wikipedia.org/wiki/Priority_queue)",
     "code": {
       "python": "import heapq\n\nclass PriorityQueue:\n    def __init__(self):\n        self.pq = []\n\n    def push(self, item):\n        heapq.heappush(self.pq, item)\n\n    def pop(self):\n        return heapq.heappop(self.pq)\n\n    def peek(self):\n        return self.pq[0]\n\n    def is_empty(self):\n        return len(self.pq) == 0",
       "c++": "#include <queue>\n#include <vector>\n\nclass PriorityQueue {\n    std::priority_queue<int, std::vector<int>, std::greater<int>> pq;\npublic:\n    void push(int item) {\n        pq.push(item);\n    }\n\n    int pop() {\n        int top = pq.top();\n        pq.pop();\n        return top;\n    }\n\n    int peek() {\n        return pq.top();\n    }\n\n    bool is_empty() {\n        return pq.empty();\n    }\n};",
@@ -381,34 +577,54 @@
     "quiz": [
       {
         "question": "What is a Priority Queue?",
-        "options": ["A data structure where each element is associated with a priority.", "A linear data structure that follows the FIFO principle.", "A linear data structure that follows the LIFO principle."],
+        "options": [
+          "A data structure where each element is associated with a priority.",
+          "A linear data structure that follows the FIFO principle.",
+          "A linear data structure that follows the LIFO principle."
+        ],
         "answer": "A data structure where each element is associated with a priority."
       },
       {
         "question": "What operation retrieves the highest priority element from a Priority Queue?",
-        "options": ["Push", "Pop", "Peek"],
+        "options": [
+          "Push",
+          "Pop",
+          "Peek"
+        ],
         "answer": "Pop"
       },
       {
         "question": "What is the time complexity of inserting an element into a Priority Queue?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(log n)"
       },
       {
         "question": "What is the time complexity of accessing the highest priority element?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "Which data structure is commonly used to implement a Priority Queue?",
-        "options": ["Heap", "Stack", "Linked List"],
+        "options": [
+          "Heap",
+          "Stack",
+          "Linked List"
+        ],
         "answer": "Heap"
       }
     ]
   },
   {
     "name": "Trie",
-    "description": "A Trie, also known as a prefix tree, is a type of search tree, a tree data structure used for locating specific keys from within a set. These keys are most often strings, with links between nodes defined not by the entire key, but by individual characters. [Learn more](https://en.wikipedia.org/wiki/Trie)",
+    "description": "A trie (prefix tree) stores strings along edge-labeled paths from the root; shared prefixes share nodes.\n\nInsert and exact lookup cost O(m) for string length m with alphabet-sized branching. Excellent for autocomplete and prefix counts; memory can grow with alphabet size and dense vocabularies. [Learn more](https://en.wikipedia.org/wiki/Trie)",
     "code": {
       "python": "class TrieNode:\n    def __init__(self):\n        self.children = {}\n        self.is_end_of_word = False\n\nclass Trie:\n    def __init__(self):\n        self.root = TrieNode()\n\n    def insert(self, word):\n        node = self.root\n        for char in word:\n            if char not in node.children:\n                node.children[char] = TrieNode()\n            node = node.children[char]\n        node.is_end_of_word = True\n\n    def search(self, word):\n        node = self.root\n        for char in word:\n            if char not in node.children:\n                return False\n            node = node.children[char]\n        return node.is_end_of_word",
       "c++": "#include <iostream>\n#include <unordered_map>\n\nclass TrieNode {\npublic:\n    std::unordered_map<char, TrieNode*> children;\n    bool is_end_of_word;\n    TrieNode() : is_end_of_word(false) {}\n};\n\nclass Trie {\n    TrieNode* root;\npublic:\n    Trie() { root = new TrieNode(); }\n\n    void insert(const std::string& word) {\n        TrieNode* node = root;\n        for (char ch : word) {\n            if (!node->children.count(ch)) {\n                node->children[ch] = new TrieNode();\n            }\n            node = node->children[ch];\n        }\n        node->is_end_of_word = true;\n    }\n\n    bool search(const std::string& word) {\n        TrieNode* node = root;\n        for (char ch : word) {\n            if (!node->children.count(ch)) {\n                return false;\n            }\n            node = node->children[ch];\n        }\n        return node->is_end_of_word;\n    }\n};",
@@ -418,34 +634,56 @@
     "quiz": [
       {
         "question": "What is a Trie?",
-        "options": ["A tree-like data structure used for storing a dynamic set of strings.", "A data structure that implements an associative array abstract data type.", "A double-ended queue that allows insertion and removal of elements from both ends."],
+        "options": [
+          "A tree-like data structure used for storing a dynamic set of strings.",
+          "A data structure that implements an associative array abstract data type.",
+          "A double-ended queue that allows insertion and removal of elements from both ends."
+        ],
         "answer": "A tree-like data structure used for storing a dynamic set of strings."
       },
       {
         "question": "What is the time complexity of searching for a word in a Trie?",
-        "options": ["O(1)", "O(n)", "O(m)", "O(m * n)"],
+        "options": [
+          "O(1)",
+          "O(n)",
+          "O(m)",
+          "O(m * n)"
+        ],
         "answer": "O(m)"
       },
       {
         "question": "What is the time complexity of inserting a word in a Trie?",
-        "options": ["O(1)", "O(n)", "O(m)", "O(m * n)"],
+        "options": [
+          "O(1)",
+          "O(n)",
+          "O(m)",
+          "O(m * n)"
+        ],
         "answer": "O(m)"
       },
       {
         "question": "What is a common application of Tries?",
-        "options": ["Sorting arrays", "Implementing priority queues", "Autocomplete and spell checker"],
+        "options": [
+          "Sorting arrays",
+          "Implementing priority queues",
+          "Autocomplete and spell checker"
+        ],
         "answer": "Autocomplete and spell checker"
       },
       {
         "question": "What is the main advantage of a Trie over a hash table?",
-        "options": ["Faster insertions", "Less memory usage", "Supports prefix queries efficiently"],
+        "options": [
+          "Faster insertions",
+          "Less memory usage",
+          "Supports prefix queries efficiently"
+        ],
         "answer": "Supports prefix queries efficiently"
       }
     ]
   },
   {
     "name": "Heap",
-    "description": "A Heap is a special tree-based data structure that satisfies the heap property: if P is a parent node of C, then the key (the value) of P is either greater than or equal to (in a max heap) or less than or equal to (in a min heap) the key of C. The node at the 'top' of the heap (with no parents) is called the root node. [Learn more](https://en.wikipedia.org/wiki/Heap_(data_structure))",
+    "description": "A binary heap is a complete binary tree with heap order: in a max-heap each parent is greater or equal to its children (min-heap reverses the inequality).\n\nSupports priority-queue operations in O(log n). Unlike a BST, a heap does not keep a full sorted order—only the extremum is cheap to read. [Learn more](https://en.wikipedia.org/wiki/Heap_(data_structure))",
     "code": {
       "python": "class Heap:\n    def __init__(self):\n        self.heap = []\n\n    def insert(self, val):\n        self.heap.append(val)\n        self.__heapify_up(len(self.heap) - 1)\n\n    def __heapify_up(self, index):\n        parent = (index - 1) // 2\n        if index > 0 and self.heap[index] > self.heap[parent]:\n            self.heap[index], self.heap[parent] = self.heap[parent], self.heap[index]\n            self.__heapify_up(parent)",
       "c++": "class Heap {\n    std::vector<int> h;\npublic:\n    void insert(int val) {\n        h.push_back(val);\n        heapify_up(h.size() - 1);\n    }\nprivate:\n    void heapify_up(int i) {\n        int parent = (i - 1) / 2;\n        if (i && h[parent] < h[i]) {\n            std::swap(h[i], h[parent]);\n            heapify_up(parent);\n        }\n    }\n};",
@@ -455,34 +693,54 @@
     "quiz": [
       {
         "question": "What is a Heap?",
-        "options": ["A special tree-based data structure that satisfies the heap property.", "A linear data structure where elements are stored in a sequential manner.", "A tree data structure used for hash tables."],
+        "options": [
+          "A special tree-based data structure that satisfies the heap property.",
+          "A linear data structure where elements are stored in a sequential manner.",
+          "A tree data structure used for hash tables."
+        ],
         "answer": "A special tree-based data structure that satisfies the heap property."
       },
       {
         "question": "What is the time complexity of inserting an element into a Heap?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(log n)"
       },
       {
         "question": "What is the time complexity of deleting the maximum element from a max-heap?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(log n)"
       },
       {
         "question": "What is the main difference between a binary heap and a binary search tree?",
-        "options": ["Heaps are not necessarily binary.", "Heaps are complete binary trees, while BSTs are not necessarily complete.", "BSTs have the heap property."],
+        "options": [
+          "Heaps are not necessarily binary.",
+          "Heaps are complete binary trees, while BSTs are not necessarily complete.",
+          "BSTs have the heap property."
+        ],
         "answer": "Heaps are complete binary trees, while BSTs are not necessarily complete."
       },
       {
         "question": "Which type of heap is used to implement a priority queue?",
-        "options": ["Max-heap", "Min-heap", "Binary search tree"],
+        "options": [
+          "Max-heap",
+          "Min-heap",
+          "Binary search tree"
+        ],
         "answer": "Min-heap"
       }
     ]
   },
   {
     "name": "Hash Table",
-    "description": "A Hash Table is a data structure that implements an associative array abstract data type, a structure that can map keys to values. Hash tables use a hash function to compute an index into an array of buckets or slots, from which the desired value can be found. [Learn more](https://en.wikipedia.org/wiki/Hash_table)",
+    "description": "A hash table maps keys to buckets using a hash function, then resolves collisions when two keys land in the same slot.\n\nAverage-case lookup and insert are O(1) with a low load factor and a good hash; worst case degrades toward O(n) if everything collides. Chaining and open addressing are standard collision strategies. [Learn more](https://en.wikipedia.org/wiki/Hash_table)",
     "code": {
       "python": "class HashTable:\n    def __init__(self):\n        self.table = [None] * 10\n\n    def hash(self, key):\n        return hash(key) % len(self.table)\n\n    def insert(self, key, value):\n        index = self.hash(key)\n        self.table[index] = value",
       "c++": "#include <vector>\n#include <list>\n\nclass HashTable {\n    std::vector<std::list<std::pair<int, int>>> table;\npublic:\n    HashTable() : table(10) {}\n\n    int hash(int key) {\n        return key % table.size();\n    }\n\n    void insert(int key, int value) {\n        int index = hash(key);\n        table[index].push_back({key, value});\n    }\n};",
@@ -492,34 +750,54 @@
     "quiz": [
       {
         "question": "What is a Hash Table?",
-        "options": ["A data structure that implements an associative array abstract data type.", "A linear data structure where elements are stored in a sequential manner.", "A special tree-based data structure that satisfies the heap property."],
+        "options": [
+          "A data structure that implements an associative array abstract data type.",
+          "A linear data structure where elements are stored in a sequential manner.",
+          "A special tree-based data structure that satisfies the heap property."
+        ],
         "answer": "A data structure that implements an associative array abstract data type."
       },
       {
         "question": "What is the time complexity of inserting an element into a Hash Table in the average case?",
-        "options": ["O(1)", "O(log n)", "O(n)"],
+        "options": [
+          "O(1)",
+          "O(log n)",
+          "O(n)"
+        ],
         "answer": "O(1)"
       },
       {
         "question": "What is a collision in the context of Hash Tables?",
-        "options": ["Two keys mapping to the same index", "Two different tables having the same data", "An array out of bounds error"],
+        "options": [
+          "Two keys mapping to the same index",
+          "Two different tables having the same data",
+          "An array out of bounds error"
+        ],
         "answer": "Two keys mapping to the same index"
       },
       {
         "question": "Which of the following is a common method to handle collisions in Hash Tables?",
-        "options": ["Quicksort", "Binary Search", "Chaining"],
+        "options": [
+          "Quicksort",
+          "Binary Search",
+          "Chaining"
+        ],
         "answer": "Chaining"
       },
       {
         "question": "What is the load factor in a Hash Table?",
-        "options": ["The ratio of the number of elements to the size of the table", "The number of elements in the table", "The size of the table"],
+        "options": [
+          "The ratio of the number of elements to the size of the table",
+          "The number of elements in the table",
+          "The size of the table"
+        ],
         "answer": "The ratio of the number of elements to the size of the table"
       }
     ]
   },
   {
     "name": "Dijkstra's Algorithm",
-    "description": "Dijkstra's Algorithm is an algorithm for finding the shortest paths between nodes in a graph, which may represent, for example, road networks. It was conceived by computer scientist Edsger W. Dijkstra in 1956 and published three years later. [Learn more](https://en.wikipedia.org/wiki/Dijkstra's_algorithm)",
+    "description": "Dijkstras algorithm grows a set of nodes whose shortest distance from a source is known, relaxing edges in increasing distance order.\n\nWorks on graphs with nonnegative edge weights; typical binary-heap implementations run in O((V + E) log V). Negative edges break the greedy assumption—use Bellman–Ford instead. [Learn more](https://en.wikipedia.org/wiki/Dijkstra's_algorithm)",
     "code": {
       "python": "import heapq\n\ndef dijkstra(graph, start):\n    queue = [(0, start)]\n    distances = {node: float('inf') for node in graph}\n    distances[start] = 0\n    while queue:\n        current_distance, current_node = heapq.heappop(queue)\n        if current_distance > distances[current_node]:\n            continue\n        for neighbor, weight in graph[current_node].items():\n            distance = current_distance + weight\n            if distance < distances[neighbor]:\n                distances[neighbor] = distance\n                heapq.heappush(queue, (distance, neighbor))\n    return distances",
       "c++": "#include <iostream>\n#include <vector>\n#include <queue>\n#include <utility>\n\nconst int INF = 1e9;\n\nvoid dijkstra(int start, std::vector<std::vector<std::pair<int, int>>>& graph) {\n    std::priority_queue<std::pair<int, int>, std::vector<std::pair<int, int>>, std::greater<>> pq;\n    std::vector<int> distance(graph.size(), INF);\n    pq.push({0, start});\n    distance[start] = 0;\n    while (!pq.empty()) {\n        int current_distance = pq.top().first;\n        int current_node = pq.top().second;\n        pq.pop();\n        if (current_distance > distance[current_node]) continue;\n        for (auto& edge : graph[current_node]) {\n            int neighbor = edge.first;\n            int weight = edge.second;\n            if (current_distance + weight < distance[neighbor]) {\n                distance[neighbor] = current_distance + weight;\n                pq.push({distance[neighbor], neighbor});\n            }\n        }\n    }\n    for (int i = 0; i < distance.size(); ++i)\n        std::cout << \"Distance to node \" << i << \" is \" << distance[i] << std::endl;\n}",
@@ -529,34 +807,54 @@
     "quiz": [
       {
         "question": "What is Dijkstra's Algorithm used for?",
-        "options": ["Finding the shortest paths between nodes in a graph.", "Finding the minimum spanning tree of a graph.", "Sorting elements in an array."],
+        "options": [
+          "Finding the shortest paths between nodes in a graph.",
+          "Finding the minimum spanning tree of a graph.",
+          "Sorting elements in an array."
+        ],
         "answer": "Finding the shortest paths between nodes in a graph."
       },
       {
         "question": "What is the time complexity of Dijkstra's Algorithm using a priority queue?",
-        "options": ["O(V^2)", "O(E log V)", "O(V log V)"],
+        "options": [
+          "O(V^2)",
+          "O(E log V)",
+          "O(V log V)"
+        ],
         "answer": "O(E log V)"
       },
       {
         "question": "Can Dijkstra's Algorithm handle negative weight edges?",
-        "options": ["Yes", "No", "Only if all edges have negative weights"],
+        "options": [
+          "Yes",
+          "No",
+          "Only if all edges have negative weights"
+        ],
         "answer": "No"
       },
       {
         "question": "What data structure is commonly used to implement Dijkstra's Algorithm efficiently?",
-        "options": ["Stack", "Queue", "Priority Queue"],
+        "options": [
+          "Stack",
+          "Queue",
+          "Priority Queue"
+        ],
         "answer": "Priority Queue"
       },
       {
         "question": "What is a limitation of Dijkstra's Algorithm?",
-        "options": ["It does not work with weighted graphs.", "It cannot handle graphs with negative weight edges.", "It is not efficient for sparse graphs."],
+        "options": [
+          "It does not work with weighted graphs.",
+          "It cannot handle graphs with negative weight edges.",
+          "It is not efficient for sparse graphs."
+        ],
         "answer": "It cannot handle graphs with negative weight edges."
       }
     ]
   },
   {
     "name": "Depth-First Search (DFS)",
-    "description": "Depth-First Search (DFS) is an algorithm for traversing or searching tree or graph data structures. The algorithm starts at the root (selecting some arbitrary node as the root in the case of a graph) and explores as far as possible along each branch before backtracking. [Learn more](https://en.wikipedia.org/wiki/Depth-first_search)",
+    "description": "DFS explores a graph by following an edge to an unvisited neighbor, recursing until no new moves remain, then backtracking.\n\nTime O(V + E) with adjacency lists. Implementation uses recursion or an explicit stack. Good for connectivity, cycle detection, and topological sort on DAGs; for shortest hop count on unweighted graphs prefer BFS. [Learn more](https://en.wikipedia.org/wiki/Depth-first_search)",
     "code": {
       "python": "def dfs(graph, start, visited=None):\n    if visited is None:\n        visited = set()\n    visited.add(start)\n    print(start)\n    for neighbor in graph[start]:\n        if neighbor not in visited:\n            dfs(graph, neighbor, visited)\n    return visited",
       "c++": "void DFSUtil(int v, bool visited[], std::vector<int> adj[]) {\n    visited[v] = true;\n    std::cout << v << \" \";\n    for (int i : adj[v])\n        if (!visited[i])\n            DFSUtil(i, visited, adj);\n}\n\nvoid DFS(int V, std::vector<int> adj[]) {\n    bool* visited = new bool[V];\n    for (int i = 0; i < V; i++)\n        visited[i] = false;\n    for (int i = 0; i < V; i++)\n        if (!visited[i])\n            DFSUtil(i, visited, adj);\n}",
@@ -566,34 +864,54 @@
     "quiz": [
       {
         "question": "What type of algorithm is Depth-First Search (DFS)?",
-        "options": ["A graph traversal algorithm.", "A sorting algorithm.", "A dynamic programming algorithm."],
+        "options": [
+          "A graph traversal algorithm.",
+          "A sorting algorithm.",
+          "A dynamic programming algorithm."
+        ],
         "answer": "A graph traversal algorithm."
       },
       {
         "question": "What data structure is commonly used to implement DFS?",
-        "options": ["Queue", "Stack", "Heap"],
+        "options": [
+          "Queue",
+          "Stack",
+          "Heap"
+        ],
         "answer": "Stack"
       },
       {
         "question": "What is the time complexity of DFS for a graph with V vertices and E edges?",
-        "options": ["O(V + E)", "O(V^2)", "O(E log V)"],
+        "options": [
+          "O(V + E)",
+          "O(V^2)",
+          "O(E log V)"
+        ],
         "answer": "O(V + E)"
       },
       {
         "question": "Which of the following problems can be solved using DFS?",
-        "options": ["Shortest path in an unweighted graph", "Topological sorting", "Minimum spanning tree"],
+        "options": [
+          "Shortest path in an unweighted graph",
+          "Topological sorting",
+          "Minimum spanning tree"
+        ],
         "answer": "Topological sorting"
       },
       {
         "question": "In DFS, what is the purpose of the 'visited' array?",
-        "options": ["To keep track of the nodes that have been visited", "To store the order of traversal", "To store the shortest path"],
+        "options": [
+          "To keep track of the nodes that have been visited",
+          "To store the order of traversal",
+          "To store the shortest path"
+        ],
         "answer": "To keep track of the nodes that have been visited"
       }
     ]
   },
   {
     "name": "Breadth-First Search (BFS)",
-    "description": "Breadth-First Search (BFS) is an algorithm for traversing or searching tree or graph data structures. It starts at the tree root (or an arbitrary node in the case of a graph) and explores the neighbor nodes at the present depth prior to moving on to the nodes at the next depth level. [Learn more](https://en.wikipedia.org/wiki/Breadth-first_search)",
+    "description": "BFS visits all nodes at distance k from the source before any at distance k + 1, using a FIFO queue.\n\nRuns in O(V + E). Finds shortest paths in unweighted graphs (by edge count). Contrasts with DFS, which may dive deep before visiting nearby nodes. [Learn more](https://en.wikipedia.org/wiki/Breadth-first_search)",
     "code": {
       "python": "from collections import deque\n\ndef bfs(graph, start):\n    visited = set()\n    queue = deque([start])\n    visited.add(start)\n    while queue:\n        vertex = queue.popleft()\n        print(vertex)\n        for neighbor in graph[vertex]:\n            if neighbor not in visited:\n                visited.add(neighbor)\n                queue.append(neighbor)",
       "c++": "#include <iostream>\n#include <list>\n#include <queue>\n\nvoid BFS(int start, std::vector<int> adj[], int V) {\n    std::vector<bool> visited(V, false);\n    std::queue<int> queue;\n    visited[start] = true;\n    queue.push(start);\n    while (!queue.empty()) {\n        int v = queue.front();\n        std::cout << v << \" \";\n        queue.pop();\n        for (int i : adj[v]) {\n            if (!visited[i]) {\n                visited[i] = true;\n                queue.push(i);\n            }\n        }\n    }\n}",
@@ -603,34 +921,54 @@
     "quiz": [
       {
         "question": "What type of algorithm is Breadth-First Search (BFS)?",
-        "options": ["A graph traversal algorithm.", "A sorting algorithm.", "A dynamic programming algorithm."],
+        "options": [
+          "A graph traversal algorithm.",
+          "A sorting algorithm.",
+          "A dynamic programming algorithm."
+        ],
         "answer": "A graph traversal algorithm."
       },
       {
         "question": "What data structure is commonly used to implement BFS?",
-        "options": ["Queue", "Stack", "Heap"],
+        "options": [
+          "Queue",
+          "Stack",
+          "Heap"
+        ],
         "answer": "Queue"
       },
       {
         "question": "What is the time complexity of BFS for a graph with V vertices and E edges?",
-        "options": ["O(V + E)", "O(V^2)", "O(E log V)"],
+        "options": [
+          "O(V + E)",
+          "O(V^2)",
+          "O(E log V)"
+        ],
         "answer": "O(V + E)"
       },
       {
         "question": "Which of the following problems can be solved using BFS?",
-        "options": ["Shortest path in an unweighted graph", "Topological sorting", "Minimum spanning tree"],
+        "options": [
+          "Shortest path in an unweighted graph",
+          "Topological sorting",
+          "Minimum spanning tree"
+        ],
         "answer": "Shortest path in an unweighted graph"
       },
       {
         "question": "In BFS, what is the purpose of the 'visited' array?",
-        "options": ["To keep track of the nodes that have been visited", "To store the order of traversal", "To store the shortest path"],
+        "options": [
+          "To keep track of the nodes that have been visited",
+          "To store the order of traversal",
+          "To store the shortest path"
+        ],
         "answer": "To keep track of the nodes that have been visited"
       }
     ]
   },
   {
     "name": "Graph",
-    "description": "A Graph is a data structure that consists of a finite set of vertices (or nodes) and a set of edges connecting them. Graphs can be used to represent various real-world networks such as computer networks, social networks, and transportation systems. [Learn more](https://en.wikipedia.org/wiki/Graph_(abstract_data_type))",
+    "description": "A graph is a set of vertices plus edges that may be directed or undirected, weighted or unweighted.\n\nAdjacency lists yield O(V + E) traversals; adjacency matrices trade O(1) edge tests for O(V^2) memory on dense graphs. Pick algorithms based on constraints—BFS for unweighted shortest paths, Dijkstra for nonnegative weights, DFS for structure discovery. [Learn more](https://en.wikipedia.org/wiki/Graph_(abstract_data_type))",
     "code": {
       "python": "class Graph:\n    def __init__(self):\n        self.graph = {}\n\n    def add_edge(self, u, v):\n        if u not in self.graph:\n            self.graph[u] = []\n        self.graph[u].append(v)\n\n    def bfs(self, start):\n        visited = set()\n        queue = [start]\n        while queue:\n            vertex = queue.pop(0)\n            if vertex not in visited:\n                print(vertex)\n                visited.add(vertex)\n                queue.extend(set(self.graph[vertex]) - visited)\n\n    def dfs(self, start, visited=None):\n        if visited is None:\n            visited = set()\n        visited.add(start)\n        print(start)\n        for next in set(self.graph[start]) - visited:\n            self.dfs(next, visited)",
       "c++": "#include <iostream>\n#include <list>\n#include <queue>\n\nclass Graph {\n    int V;\n    std::list<int>* adj;\npublic:\n    Graph(int V) {\n        this->V = V;\n        adj = new std::list<int>[V];\n    }\n\n    void addEdge(int v, int w) {\n        adj[v].push_back(w);\n    }\n\n    void BFS(int s) {\n        bool* visited = new bool[V];\n        for (int i = 0; i < V; i++)\n            visited[i] = false;\n        std::queue<int> queue;\n        visited[s] = true;\n        queue.push(s);\n        while (!queue.empty()) {\n            s = queue.front();\n            std::cout << s << \" \";\n            queue.pop();\n            for (auto adjecent : adj[s]) {\n                if (!visited[adjecent]) {\n                    visited[adjecent] = true;\n                    queue.push(adjecent);\n                }\n            }\n        }\n    }\n\n    void DFSUtil(int v, bool visited[]) {\n        visited[v] = true;\n        std::cout << v << \" \";\n        for (auto i = adj[v].begin(); i != adj[v].end(); ++i)\n            if (!visited[*i])\n                DFSUtil(*i, visited);\n    }\n\n    void DFS(int v) {\n        bool* visited = new bool[V];\n        for (int i = 0; i < V; i++)\n            visited[i] = false;\n        DFSUtil(v, visited);\n    }\n};",
@@ -640,27 +978,47 @@
     "quiz": [
       {
         "question": "What is a Graph?",
-        "options": ["A data structure that consists of vertices and edges.", "A data structure that implements an associative array abstract data type.", "A linear data structure where elements are stored in a sequential manner."],
+        "options": [
+          "A data structure that consists of vertices and edges.",
+          "A data structure that implements an associative array abstract data type.",
+          "A linear data structure where elements are stored in a sequential manner."
+        ],
         "answer": "A data structure that consists of vertices and edges."
       },
       {
         "question": "What is an edge in a graph?",
-        "options": ["A connection between two vertices.", "A single node in a graph.", "A cycle in a graph."],
+        "options": [
+          "A connection between two vertices.",
+          "A single node in a graph.",
+          "A cycle in a graph."
+        ],
         "answer": "A connection between two vertices."
       },
       {
         "question": "What is the time complexity of BFS for a graph with V vertices and E edges?",
-        "options": ["O(V + E)", "O(V^2)", "O(E log V)"],
+        "options": [
+          "O(V + E)",
+          "O(V^2)",
+          "O(E log V)"
+        ],
         "answer": "O(V + E)"
       },
       {
         "question": "What is the time complexity of DFS for a graph with V vertices and E edges?",
-        "options": ["O(V + E)", "O(V^2)", "O(E log V)"],
+        "options": [
+          "O(V + E)",
+          "O(V^2)",
+          "O(E log V)"
+        ],
         "answer": "O(V + E)"
       },
       {
         "question": "Which of the following algorithms is used to find the shortest path in an unweighted graph?",
-        "options": ["DFS", "BFS", "Dijkstra's Algorithm"],
+        "options": [
+          "DFS",
+          "BFS",
+          "Dijkstra's Algorithm"
+        ],
         "answer": "BFS"
       }
     ]

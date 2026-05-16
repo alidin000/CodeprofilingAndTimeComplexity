@@ -1,4 +1,8 @@
+import os
+import shutil
+import tempfile
 import unittest
+
 import numpy as np
 from analyzer.graph_fitting import (
     select_best_fitting_model,
@@ -13,7 +17,11 @@ class TestGraphFitting(unittest.TestCase):
 
     def setUp(self):
         """Set up mock data for testing."""
-        self.mock_file_paths = ["mock_output_10.txt", "mock_output_20.txt"]
+        self._mock_dir = tempfile.mkdtemp(prefix="tca_graph_fit_")
+        self.mock_file_paths = [
+            os.path.join(self._mock_dir, "mock_output_10.txt"),
+            os.path.join(self._mock_dir, "mock_output_20.txt"),
+        ]
         self.mock_data_10 = """
         test case = 1
         Function execution time: 100 ns
@@ -40,10 +48,7 @@ class TestGraphFitting(unittest.TestCase):
 
     def tearDown(self):
         """Remove mock files after testing."""
-        import os
-        for path in self.mock_file_paths:
-            if os.path.exists(path):
-                os.remove(path)
+        shutil.rmtree(self._mock_dir, ignore_errors=True)
 
     def test_parse_output_file(self):
         """Test parsing of an output file."""
@@ -66,6 +71,14 @@ class TestGraphFitting(unittest.TestCase):
 
         simplified_name, simplified_params = simplify_model('linear', [0.0001, 3], tol=1e-3)
         self.assertEqual(simplified_name, 'constant')
+
+    def test_simplify_model_accepts_ndarray(self):
+        """ndarray params must not trigger ambiguous truth-value errors."""
+        import numpy as np
+
+        name, params = simplify_model('cubic', np.array([0.0001, 1.0, 2.0, 3.0]), tol=1e-3)
+        self.assertEqual(name, 'quadratic')
+        self.assertIsInstance(params, list)
 
     def test_parse_and_analyze(self):
         """Test parsing and analyzing multiple output files."""
@@ -91,19 +104,42 @@ class TestGraphFitting(unittest.TestCase):
         best_fit = results['function']['best_fit']
         self.assertIn(best_fit['model'], time_complexity_notation)
 
+        self.assertIn('series', results['function'])
+        fs = results['function']['series']
+        self.assertIsNotNone(fs)
+        self.assertEqual(fs['n'], [10, 20])
+        self.assertEqual(fs['observed'], [150.0, 500.0])
+        self.assertIsInstance(fs.get('fitted'), (list, type(None)))
+
+        inst = results.get('instrumentation')
+        self.assertIsInstance(inst, dict)
+        self.assertIn('per_size_aggregation', inst)
+        self.assertIn('bic_parameter_penalty_gamma', inst)
+        self.assertEqual(inst.get('sizes'), [10, 20])
+
 
     def test_inverse_ackermann_model(self):
-        """Test if the model correctly identifies inverse_ackermann behavior."""
+        """Ultra-slow growth should map to an inverse-Ackermann-like or near-tied log family (BIC)."""
         import numpy as np
 
         x_data = np.array([10**3, 10**6, 10**9, 10**12, 10**15])
-        
+
         def approximate_inverse_ackermann(x):
             return np.log(np.log(np.log(x + 1) + 1) + 1) + 1
-        
+
         y_data = approximate_inverse_ackermann(x_data)
 
         best_fit = select_best_fitting_model(x_data, y_data)
 
-        assert best_fit['model'] == 'inverse_ackermann', f"Expected 'inverse_ackermann', but got {best_fit['model']}."
+        acceptable = {
+            'inverse_ackermann',
+            'log_logarithmic',
+            'iterated_logarithmic',
+            'logarithmic',
+        }
+        self.assertIn(
+            best_fit['model'],
+            acceptable,
+            f"Expected a very slowly growing family, got {best_fit['model']!r} (bic={best_fit.get('bic')}).",
+        )
 

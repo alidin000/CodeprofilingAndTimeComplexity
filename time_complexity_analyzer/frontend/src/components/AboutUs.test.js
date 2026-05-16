@@ -1,14 +1,25 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
 import AboutUs from './AboutUs';
 
+const theme = createTheme();
+
+function renderAbout() {
+  return render(
+    <ThemeProvider theme={theme}>
+      <AboutUs />
+    </ThemeProvider>
+  );
+}
+
 test('renders About Us heading', () => {
-  render(<AboutUs />);
-  expect(screen.getByText(/About Us/i)).toBeInTheDocument();
+  renderAbout();
+  expect(screen.getByText(/About Complexity Lab/i)).toBeInTheDocument();
 });
 
 test('renders About Us paragraphs', () => {
-  render(<AboutUs />);
+  renderAbout();
   expect(screen.getByText(/Welcome to our platform!/i)).toBeInTheDocument();
   expect(screen.getByText(/On our Learning Page/i)).toBeInTheDocument();
   expect(screen.getByText(/Utilize our Calculator Page/i)).toBeInTheDocument();
@@ -16,6 +27,6 @@ test('renders About Us paragraphs', () => {
 });
 
 test('renders embedded video', () => {
-  render(<AboutUs />);
+  renderAbout();
   expect(screen.getByTitle(/Time Complexity Animations/i)).toBeInTheDocument();
 });

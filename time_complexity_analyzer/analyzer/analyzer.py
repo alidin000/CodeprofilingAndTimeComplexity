@@ -1,10 +1,18 @@
+import os
 import re
 import subprocess
-import os
 
-def instrument_java_function(user_function, call_template, num_inputs, output_file_path, size_array):
+from analyzer.benchmark_profiles import JAVA_GENERATE_METHOD, normalize_benchmark_profile
+from analyzer.measurement_config import WARMUP_RUNS
+
+
+def instrument_java_function(
+    user_function, call_template, num_inputs, size_array, benchmark_profile="random"
+):
     function_name = re.search(r"public\s+(?:static\s+)?\w+\s+(\w+)\(", user_function).group(1)
-    output_file_path = output_file_path.replace("\\", "\\\\")
+    profile = normalize_benchmark_profile(benchmark_profile)
+    java_generate = JAVA_GENERATE_METHOD[profile]
+
     java_prolog = """
     import java.io.PrintWriter;
     import java.io.File;
@@ -13,39 +21,27 @@ def instrument_java_function(user_function, call_template, num_inputs, output_fi
     import java.util.Random;
 
     public class InstrumentedPrototype {
-        public HashMap<Integer, Long> lineInfoLastStart = new HashMap<>();
         public HashMap<Integer, Long> lineInfoTotal = new HashMap<>();
-
-        private long getLastLineInfo(int lineNumber) {
-            if (lineInfoLastStart.containsKey(lineNumber)) {
-                return lineInfoLastStart.get(lineNumber);
-            } else if (lineNumber > 1) {
-                return getLastLineInfo(lineNumber - 1);
-            }
-            return 0L;
-        }
     """
 
     java_epilog = f"""
-        public static int[] generateInput(int size) {{
-            Random rand = new Random();
-            int[] input = new int[size];
-            for (int i = 0; i < size; i++) {{
-                input[i] = rand.nextInt(1000); 
-            }}
-            return input;
-        }}
+{java_generate}
 
         public static void main(String[] args) {{
-            try(PrintWriter pw = new PrintWriter(new File("output_java_{size_array}.txt"))) {{
-                for (int size = 1; size <= {num_inputs}; size++) {{
+            try (PrintWriter pw = new PrintWriter(new File("output_java_{size_array}.txt"))) {{
+                for (int w = 0; w < {WARMUP_RUNS}; w++) {{
+                    InstrumentedPrototype warm = new InstrumentedPrototype();
+                    int[] input = generateInput({size_array});
+                    {call_template.replace("p.", "warm.")}
+                }}
+                for (int tc = 1; tc <= {num_inputs}; tc++) {{
                     InstrumentedPrototype p = new InstrumentedPrototype();
                     long startTime = System.nanoTime();
                     int[] input = generateInput({size_array});
                     {call_template}
                     long endTime = System.nanoTime();
                     long execTime = endTime - startTime;
-                    pw.printf("test case = %d\\n", size);
+                    pw.printf("test case = %d\\n", tc);
                     pw.printf("Function execution time: %d ns\\n", execTime);
                     pw.println(p.lineInfoTotal.toString());
                 }}
@@ -68,25 +64,25 @@ def instrument_java_function(user_function, call_template, num_inputs, output_fi
             instrumented_line = line
         else:
             instrumented_line = (
-                f"this.lineInfoLastStart.put({i}, System.nanoTime());\n"
-                + line + "\n"
-                + f"this.lineInfoTotal.put({i}, this.lineInfoTotal.getOrDefault({i}, 0L) + System.nanoTime() - getLastLineInfo({i}));"
+                f"this.lineInfoTotal.put({i}, this.lineInfoTotal.getOrDefault({i}, 0L) + 1);\n"
+                + line
             )
         instrumented_user_function += "\n" + instrumented_line
 
-    full_java_code = java_prolog + instrumented_user_function + java_epilog
-    return full_java_code
+    return java_prolog + instrumented_user_function + java_epilog
 
-def write_and_compile_java(java_code):
-    java_file_dir = os.path.dirname(__file__)
-    java_file_path = os.path.join(java_file_dir, "InstrumentedPrototype.java")
 
-    with open(java_file_path, "w") as java_file:
+def write_and_compile_java(java_code, work_dir):
+    java_file_path = os.path.join(work_dir, "InstrumentedPrototype.java")
+    with open(java_file_path, "w", encoding="utf-8") as java_file:
         java_file.write(java_code)
-    
-    subprocess.run(["javac", java_file_path], check=True)
 
-def run_java_program():
-    java_file_dir = os.path.dirname(__file__)
-    command = ["java", "-cp", java_file_dir, "InstrumentedPrototype"]
-    subprocess.run(command, check=True)
+    subprocess.run(["javac", java_file_path], check=True, cwd=work_dir)
+
+
+def run_java_program(work_dir):
+    subprocess.run(
+        ["java", "-cp", work_dir, "InstrumentedPrototype"],
+        check=True,
+        cwd=work_dir,
+    )

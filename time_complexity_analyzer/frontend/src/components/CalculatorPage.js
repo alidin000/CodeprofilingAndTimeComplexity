@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import axios from "axios";
 import {
-  Container,
   Card,
   CardContent,
   Button,
@@ -10,35 +10,36 @@ import {
   FormControl,
   InputLabel,
   Box,
+  Stack,
+  Chip,
+  alpha,
+  useTheme,
+  Collapse,
+  LinearProgress,
+  ToggleButton,
+  ToggleButtonGroup,
+  Tabs,
+  Tab,
+  Divider,
+  FormControlLabel,
+  Checkbox,
 } from "@mui/material";
+import PlayArrowRounded from "@mui/icons-material/PlayArrowRounded";
+import HistoryRounded from "@mui/icons-material/HistoryRounded";
+import CodeRounded from "@mui/icons-material/CodeRounded";
+import SpeedRounded from "@mui/icons-material/SpeedRounded";
+import InsightsOutlined from "@mui/icons-material/InsightsOutlined";
+import TuneOutlined from "@mui/icons-material/TuneOutlined";
+import MenuBookOutlined from "@mui/icons-material/MenuBookOutlined";
+import { Link as RouterLink } from "react-router-dom";
 import CodeEditorArea from "./CodeEditorArea";
 import Output from "./CodeOut";
 import AxiosInstance from "./Axios";
 import InfoSection from "./InfoSection";
-
-const time_complexity_notation = {
-  constant: "O(1)",
-  linear: "O(n)",
-  quadratic: "O(n^2)",
-  logarithmic: "O(log n)",
-  exponential: "O(2^n)",
-  cubic: "O(n^3)",
-  log_linear: "O(n log n)",
-  factorial: "O(n!)",
-  polynomial: "O(n^k)",
-  inverse_ackermann: "O(α(n))",
-  iterated_logarithmic: "O(log* n)",
-  log_logarithmic: "O(log log n)",
-  polylogarithmic: "O((log n)^k)",
-  fractional_power: "O(n^c)",
-  quasilinear: "O(n log^k n)",
-  quasi_polynomial: "O(exp((log n)^k))",
-  subexponential: "O(exp(n^c))",
-  subexponential_variant: "2^(o(n))",
-  polynomial_linear_exponent: "O(2^(O(n)))",
-  double_exponential: "O(2^(2^n))",
-  exponential_poly: "O(2^(poly(n)))",
-};
+import AnalysisRunPanel from "./AnalysisRunPanel";
+import { usePlatform } from "../context/PlatformContext";
+import { ANALYSIS_PHASES } from "../style/system";
+import { TIME_COMPLEXITY_NOTATION } from "../constants/timeComplexityNotation";
 
 const limitations = {
   Java: [
@@ -49,6 +50,7 @@ const limitations = {
     "No third-party libraries",
     "No empty lines or comments",
     "Code will be run with the numbers between 0 and 10^5",
+    "Benchmark input profile applies to Java, Python, and C++ harnesses (how synthetic arrays are filled at each n).",
   ],
   Python: [
     "Function must accept a list as an argument",
@@ -58,6 +60,7 @@ const limitations = {
     "No third-party libraries",
     "No empty lines or comments",
     "Code will be run with the numbers between 0 and 10^5",
+    "Benchmark input profile applies to Java, Python, and C++ harnesses (try sorted ascending to stress max-finding loops).",
   ],
   Cpp: [
     "Function must be defined as: type functionName(std::vector<int>& arr)",
@@ -66,27 +69,12 @@ const limitations = {
     "No third-party libraries",
     "No empty lines or comments",
     "Code will be run with the numbers between 0 and 10^5",
+    "Benchmark input profile applies to Java, Python, and C++ harnesses.",
   ],
 };
 
-function CalculatorPage({ isAuthenticated, currentUser }) {
-  const [code, setCode] = useState(``);
-  const [language, setLanguage] = useState("Python");
-  const [outputText, setOutputText] = useState(
-    "// Output will be displayed here"
-  );
-  const [results, setResults] = useState([]);
-  const [history, setHistory] = useState([]);
-  const [error, setError] = useState("");
-  const [userModifiedCode, setUserModifiedCode] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [showHistory, setShowHistory] = useState(false);
-  const [expandedCode, setExpandedCode] = useState(null);
-  const [historyLoading, setHistoryLoading] = useState(false);
-  const user = isAuthenticated ? currentUser : "Unknown";
-
-  const defaultCodes = {
-    Java: `public boolean isSorted(int[] arr) {
+const DEFAULT_CODES = {
+  Java: `public boolean isSorted(int[] arr) {
       for (int i = 0; i < arr.length - 1; i++) {
           if (arr[i] > arr[i + 1]) {
               return false;
@@ -94,7 +82,7 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
       }
       return true;
   }`,
-    Python: `def find_max(arr):
+  Python: `def find_max(arr):
       if not arr:
           return None
       max_value = arr[0]
@@ -102,27 +90,86 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
           if num > max_value:
               max_value = num
       return max_value`,
-    Cpp: `int sumArray(std::vector<int>& arr) {
+  Cpp: `int sumArray(std::vector<int>& arr) {
       int sum = 0;
       for (int num : arr) {
           sum += num;
       }
       return sum;
   }`,
-  };
+};
+
+function CalculatorPage() {
+  const theme = useTheme();
+  const { isLoggedIn: isAuthenticated, currentUser } = usePlatform();
+  const [code, setCode] = useState(``);
+  const [language, setLanguage] = useState("Python");
+  const [outputText, setOutputText] = useState("// Output will be displayed here");
+  const [results, setResults] = useState([]);
+  const [lastRawAnalysis, setLastRawAnalysis] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [error, setError] = useState("");
+  const [userModifiedCode, setUserModifiedCode] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [benchmarkProfile, setBenchmarkProfile] = useState("random");
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [compareProfile, setCompareProfile] = useState("sorted_ascending");
+  const [lastRawAnalysisCompare, setLastRawAnalysisCompare] = useState(null);
+  const [mainTab, setMainTab] = useState("source");
+  const [expandedCode, setExpandedCode] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [analysisPhaseIndex, setAnalysisPhaseIndex] = useState(0);
+  const abortRef = useRef(null);
+  const user = isAuthenticated ? currentUser : "Unknown";
+
+  useEffect(() => () => {
+    abortRef.current?.abort();
+  }, []);
 
   useEffect(() => {
-    setCode(defaultCodes[language]);
+    if (!loading) {
+      setElapsedMs(0);
+      return undefined;
+    }
+    const t0 = Date.now();
+    const id = setInterval(() => setElapsedMs(Date.now() - t0), 100);
+    return () => clearInterval(id);
+  }, [loading]);
+
+  useEffect(() => {
+    if (!loading) {
+      setAnalysisPhaseIndex(0);
+      return undefined;
+    }
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      const sec = (Date.now() - t0) / 1000;
+      setAnalysisPhaseIndex((prev) => {
+        const next = Math.min(Math.floor(sec / 2.35), ANALYSIS_PHASES.length - 1);
+        return Math.max(prev, next);
+      });
+    }, 400);
+    return () => clearInterval(id);
+  }, [loading]);
+
+  useEffect(() => {
+    abortRef.current?.abort();
+    setCode(DEFAULT_CODES[language]);
     setOutputText("// Output will be displayed here");
     setResults([]);
+    setLastRawAnalysis(null);
+    setLastRawAnalysisCompare(null);
     setError("");
     setUserModifiedCode(false);
+    setBenchmarkProfile("random");
+    setMainTab("source");
   }, [language]);
 
   const handleLanguageChange = (selectedLanguage) => {
     setLanguage(selectedLanguage);
     if (!userModifiedCode || code === "") {
-      setCode(defaultCodes[selectedLanguage]);
+      setCode(DEFAULT_CODES[selectedLanguage]);
     }
     setError("");
   };
@@ -151,42 +198,82 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
     }
   };
 
-  const handleToggleHistory = () => {
-    setShowHistory((prev) => {
-      if (!prev) {
-        fetchHistory();
-      }
-      return !prev;
-    });
+  const handleMainTabChange = (_event, newValue) => {
+    if (newValue === "history" && isAuthenticated) {
+      fetchHistory();
+    }
+    setMainTab(newValue);
   };
 
-  const handleAnalyseClick = () => {
+  const handleCancelAnalysis = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  const handleAnalyseClick = async () => {
     if (!user || !code || !language) {
       setError("Can't calculate it. Please check your code and try again.");
       return;
     }
+    if (compareEnabled && compareProfile === benchmarkProfile) {
+      setError("Pick a different compare profile than the primary benchmark.");
+      return;
+    }
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
 
     setLoading(true);
     setOutputText("Please wait...");
+    setLastRawAnalysis(null);
+    setLastRawAnalysisCompare(null);
+    setError("");
 
-    const payload = {
-      username: user,
-      code: code,
-      language: language,
-      time_complexity: "O(n)",
-    };
+    const postAnalysis = (profile) =>
+      AxiosInstance.post(
+        "/api/analyse-code/",
+        {
+          username: user,
+          code: code,
+          language: language,
+          time_complexity: "O(n)",
+          benchmark_profile: profile,
+        },
+        { signal: controller.signal }
+      );
 
-    AxiosInstance.post("/api/analyse-code/", payload)
-      .then((response) => {
-        setResults(formatResults(response.data, code, language));
-        setOutputText(formatOutput(response.data, code, language));
+    try {
+      const primary = await postAnalysis(benchmarkProfile);
+      setLastRawAnalysis(primary.data);
+      setResults(formatResults(primary.data, code, language));
+      setOutputText(formatOutput(primary.data, code, language));
+
+      if (compareEnabled && compareProfile !== benchmarkProfile) {
+        const secondary = await postAnalysis(compareProfile);
+        setLastRawAnalysisCompare(secondary.data);
+      } else {
+        setLastRawAnalysisCompare(null);
+      }
+
+      setError("");
+      setMainTab("results");
+    } catch (err) {
+      if (axios.isCancel(err) || err.code === "ERR_CANCELED" || err.name === "CanceledError") {
+        setOutputText("// Run cancelled — adjust your snippet and run again when ready.");
         setError("");
-        setLoading(false);
-      })
-      .catch(() => {
+      } else if (err.response?.status === 401) {
+        setError(
+          "Sign in or create an account to run analysis. If you self-host the API, set TCA_ALLOW_ANONYMOUS_ANALYSIS=true (default) or DEBUG=true, then restart Django."
+        );
+      } else {
         setError("Can't calculate it. Please check your code and try again.");
-        setLoading(false);
-      });
+      }
+    } finally {
+      if (abortRef.current === controller) {
+        abortRef.current = null;
+      }
+      setLoading(false);
+    }
   };
 
   const formatResults = (data, code, language) => {
@@ -202,8 +289,9 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
           line: line.trim(),
           lineNumber,
           complexity,
-          notation: time_complexity_notation[complexity] || "",
+          notation: TIME_COMPLEXITY_NOTATION[complexity] || "",
           avgExecTimes,
+          series: lineInfo.series || null,
         };
       }
       return {
@@ -212,6 +300,7 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
         function: "",
         complexity: "",
         avgExecTimes: {},
+        series: null,
       };
     });
     const functionComplexity =
@@ -223,48 +312,61 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
       : {};
     results.functionComplexity = functionComplexity;
     results.functionComplexityWord = functionComplexity;
-    results.functionNotation = time_complexity_notation[functionComplexity] || "";
+    results.functionNotation = TIME_COMPLEXITY_NOTATION[functionComplexity] || "";
     results.functionAvgExecTimes = functionAvgExecTimes;
-  
+    results.measurement = data.measurement;
+    results.staticAnalysis = data.static_analysis ?? null;
+    results.functionSeries = data.function?.series ?? null;
+    results.benchmarkProfile = data.benchmark_profile ?? null;
+
     return results;
   };
-  
+
   const formatOutput = (data, code, language) => {
-    const codeLines = code.split("\n");    
+    const lineMeasurement = data.measurement === "line_executions";
+    const formatBuckets = (avgMap, useNs) => {
+      if (!avgMap) return "";
+      return Object.entries(avgMap)
+        .map(([size, val]) => {
+          if (useNs) return `${size}: ${Number(val).toFixed(2)} ns`;
+          const n = Number(val);
+          const s = Number.isInteger(n) ? String(n) : n.toFixed(1);
+          return `${size}: ${s} exec`;
+        })
+        .join(", ");
+    };
+    const codeLines = code.split("\n");
     const linesOutput = codeLines.map((line, index) => {
-      const lineNumber = language === "Python" ? index : index + 1;     
+      const lineNumber = language === "Python" ? index : index + 1;
       const lineInfo = data.lines ? data.lines[lineNumber] : null;
       if (lineInfo) {
-        const avgExecTimes = lineInfo.average_exec_times
-          ? Object.entries(lineInfo.average_exec_times)
-              .map(([size, time]) => `${size}: ${time.toFixed(2)} ns`)
-              .join(", ")
-          : "";
+        const avgExecTimes = formatBuckets(
+          lineInfo.average_exec_times,
+          !lineMeasurement
+        );
         return `Line ${lineNumber}: ${line} -> ${
-          time_complexity_notation[
+          TIME_COMPLEXITY_NOTATION[
             lineInfo.best_fit ? lineInfo.best_fit.model : ""
           ] || ""
         } {${
           lineInfo.best_fit ? lineInfo.best_fit.model : ""
-        }} (Avg times: ${avgExecTimes})`;
+        }} (${lineMeasurement ? "Avg executions" : "Avg times"}: ${avgExecTimes})`;
       }
       return `Line ${lineNumber}: ${line}`;
     });
 
-    const overallAvgExecTimes =
-      data.function && data.function.average_exec_times
-        ? Object.entries(data.function.average_exec_times)
-            .map(([size, time]) => `${size}: ${time.toFixed(2)} ns`)
-            .join(", ")
-        : "";
+    const overallAvgExecTimes = formatBuckets(
+      data.function && data.function.average_exec_times,
+      true
+    );
     const overallComplexity = data.function
       ? `\nOverall Function Time Complexity: ${
-          time_complexity_notation[
+          TIME_COMPLEXITY_NOTATION[
             data.function.best_fit ? data.function.best_fit.model : ""
           ] || ""
         } {${
           data.function.best_fit ? data.function.best_fit.model : ""
-        }} (Avg times: ${overallAvgExecTimes})`
+        }} (Wall-clock avg: ${overallAvgExecTimes})`
       : "";
     linesOutput.push(overallComplexity);
     return linesOutput.join("\n");
@@ -272,112 +374,333 @@ function CalculatorPage({ isAuthenticated, currentUser }) {
 
   const renderHistory = () => {
     if (historyLoading) {
-      return <Typography>Loading history...</Typography>;
+      return (
+        <Stack alignItems="center" py={4} spacing={2}>
+          <LinearProgress sx={{ width: "min(400px, 100%)", borderRadius: 2 }} />
+          <Typography color="text.secondary">Pulling your past runs…</Typography>
+        </Stack>
+      );
     }
 
     if (!history || history.length === 0) {
-      return <Typography>No history available.</Typography>;
+      return (
+        <Typography color="text.secondary" sx={{ py: 3 }}>
+          No history yet. Run an analysis while signed in to build a timeline here.
+        </Typography>
+      );
     }
 
     return history.map((entry, index) => (
-      <Card key={index} className="mt-2">
+      <Card
+        key={index}
+        sx={{
+          mb: 2,
+          transition: "transform 0.2s ease, box-shadow 0.2s ease",
+          "&:hover": { transform: "translateY(-2px)", boxShadow: theme.shadows[4] },
+        }}
+      >
         <CardContent>
           <Typography
-            variant="h6"
-            style={{
+            variant="subtitle1"
+            sx={{
               cursor: "pointer",
-              textDecoration: "underline",
-              color: "blue",
+              fontWeight: 700,
+              color: "primary.main",
+              "&:hover": { textDecoration: "underline" },
             }}
             onClick={() =>
               setExpandedCode(expandedCode === index ? null : index)
             }
           >
-            {`Code (${entry.language}) - ${entry.code.slice(0, 50)}...`}
+            {`Code (${entry.language}) — ${entry.code.slice(0, 52)}…`}
           </Typography>
-          {expandedCode === index && (
-            <Output
-              outputText=""
-              results={formatResults(entry.analysis_result, entry.code, entry.language)}
-              error=""
-              loading={false}
-            />
-          )}
-          <Typography variant="caption">{`Analyzed on: ${new Date(
-            entry.created_at
-          ).toLocaleString()}`}</Typography>
+          <Collapse in={expandedCode === index}>
+            <Box sx={{ mt: 2 }}>
+              <Output
+                outputText=""
+                results={formatResults(entry.analysis_result, entry.code, entry.language)}
+                error=""
+                loading={false}
+                rawAnalysis={entry.analysis_result}
+                analysisLanguage={entry.language}
+              />
+            </Box>
+          </Collapse>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            {`Analyzed ${new Date(entry.created_at).toLocaleString()}`}
+          </Typography>
         </CardContent>
       </Card>
     ));
   };
 
+  const heroChips = [
+    { icon: <SpeedRounded />, label: "Wall-clock + line counts" },
+    { icon: <CodeRounded />, label: "Java · Python · C++" },
+    { icon: <InsightsOutlined />, label: "BIC growth fits" },
+    { icon: <TuneOutlined />, label: "Five input schedules" },
+  ];
+
   return (
-    <Container sx={{ maxWidth: "1800px" }}>
-      <Card className="mt-4">
-        <CardContent>
-          <Box display="flex" justifyContent="space-between">
-            <FormControl variant="outlined" sx={{ width: 200 }}>
-              <InputLabel id="language-select-label">Language</InputLabel>
-              <Select
-                labelId="language-select-label"
+    <Box sx={{ position: "relative", width: "100%", maxWidth: 1280, mx: "auto", pb: { xs: 3, md: 5 } }}>
+      <Stack spacing={2.5}>
+        <Card
+          sx={{
+            overflow: "hidden",
+            border: `1px solid ${alpha(theme.palette.primary.main, 0.25)}`,
+            background: `linear-gradient(110deg, ${alpha(theme.palette.primary.main, theme.palette.mode === "dark" ? 0.12 : 0.08)} 0%, transparent 55%)`,
+          }}
+        >
+          <CardContent sx={{ py: 2.5, px: { xs: 2, md: 3 } }}>
+            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }} justifyContent="space-between">
+              <Box>
+                <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: "0.22em" }}>
+                  Analysis lab
+                </Typography>
+                <Typography variant="h4" component="h1" sx={{ fontWeight: 800, letterSpacing: "-0.03em", mt: 0.5 }}>
+                  Profile one function —{" "}
+                  <Box component="span" sx={{ color: "secondary.main" }}>
+                    Learning-style
+                  </Box>{" "}
+                  layout.
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 560, lineHeight: 1.65 }}>
+                  Sticky session rail (like topic filters), tabbed workspace for source, results deck, and account
+                  history. Orbital navbar unchanged.
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                {heroChips.map((c) => (
+                  <Chip
+                    key={c.label}
+                    icon={c.icon}
+                    label={c.label}
+                    color="primary"
+                    variant="outlined"
+                    sx={{ fontWeight: 700 }}
+                  />
+                ))}
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {loading && mainTab !== "history" ? (
+          <AnalysisRunPanel
+            phases={ANALYSIS_PHASES}
+            phaseIndex={analysisPhaseIndex}
+            elapsedMs={elapsedMs}
+            onCancel={handleCancelAnalysis}
+          />
+        ) : null}
+
+        <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} alignItems="stretch">
+          <Card
+            sx={{
+              width: { xs: "100%", md: 300 },
+              flexShrink: 0,
+              alignSelf: { md: "flex-start" },
+              position: { md: "sticky" },
+              top: { md: 16 },
+              maxHeight: { md: "calc(100vh - 100px)" },
+              display: "flex",
+              flexDirection: "column",
+            }}
+          >
+            <CardContent sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2, flex: 1, minHeight: 0 }}>
+              <Box>
+                <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: "0.2em" }}>
+                  Session
+                </Typography>
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  Run profile
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75, lineHeight: 1.5 }}>
+                  Mirrors the Learning page: configure here, read outputs in tabs →
+                </Typography>
+              </Box>
+              <Divider />
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: "0.12em" }}>
+                LANGUAGE
+              </Typography>
+              <ToggleButtonGroup
+                exclusive
                 value={language}
-                onChange={(e) => handleLanguageChange(e.target.value)}
-                label="Language"
+                onChange={(_, v) => v && handleLanguageChange(v)}
+                size="small"
+                orientation="vertical"
+                sx={{
+                  width: "100%",
+                  "& .MuiToggleButton-root": {
+                    justifyContent: "flex-start",
+                    px: 2,
+                    py: 1,
+                    fontWeight: 700,
+                    textTransform: "none",
+                    borderRadius: "10px !important",
+                    border: `1px solid ${theme.palette.divider} !important`,
+                  },
+                }}
               >
-                <MenuItem value="Java">Java</MenuItem>
-                <MenuItem value="Python">Python</MenuItem>
-                <MenuItem value="Cpp">C++</MenuItem>
-              </Select>
-            </FormControl>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={handleToggleHistory}
-              disabled={!isAuthenticated}
-            >
-              {showHistory ? "Hide History" : "Show History"}
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
-      <div
-        className="flex flex-row mt-3"
-        style={{ display: "flex", width: "100%" }}
-      >
-        <Card className="flex-grow-1" sx={{ flex: 1, marginRight: "1rem" }}>
-          <CardContent>
-            <CodeEditorArea
-              language={language}
-              code={code}
-              onCodeChange={handleCodeChange}
-            />
-            <Button
-              variant="contained"
-              color="primary"
-              className="mt-4"
-              onClick={handleAnalyseClick}
-            >
-              Analyse
-            </Button>
-          </CardContent>
-        </Card>
-        <Card className="flex-grow-2" sx={{ flex: 3 }}>
-          <CardContent>
-            {showHistory ? (
-              renderHistory()
-            ) : (
-              <Output
-                outputText={outputText}
-                results={results}
-                error={error}
-                loading={loading}
+                <ToggleButton value="Java">Java</ToggleButton>
+                <ToggleButton value="Python">Python</ToggleButton>
+                <ToggleButton value="Cpp">C++</ToggleButton>
+              </ToggleButtonGroup>
+              <FormControl variant="outlined" size="small" fullWidth>
+                <InputLabel id="benchmark-profile-label">Benchmark inputs</InputLabel>
+                <Select
+                  labelId="benchmark-profile-label"
+                  value={benchmarkProfile}
+                  onChange={(e) => setBenchmarkProfile(e.target.value)}
+                  label="Benchmark inputs"
+                >
+                  <MenuItem value="random">Random (average-ish)</MenuItem>
+                  <MenuItem value="sorted_ascending">Sorted ascending (stress max / search)</MenuItem>
+                  <MenuItem value="sorted_descending">Sorted descending</MenuItem>
+                  <MenuItem value="all_equal">All equal</MenuItem>
+                  <MenuItem value="alternating_high_low">Alternating high / low</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={compareEnabled}
+                    onChange={(_, c) => setCompareEnabled(c)}
+                    size="small"
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                    Compare with second profile
+                  </Typography>
+                }
               />
-            )}
-          </CardContent>
-        </Card>
-      </div>
-      <InfoSection language={language} limitations={limitations[language]} />
-    </Container>
+              {compareEnabled ? (
+                <FormControl variant="outlined" size="small" fullWidth>
+                  <InputLabel id="compare-profile-label">Compare profile</InputLabel>
+                  <Select
+                    labelId="compare-profile-label"
+                    value={compareProfile}
+                    onChange={(e) => setCompareProfile(e.target.value)}
+                    label="Compare profile"
+                  >
+                    {["random", "sorted_ascending", "sorted_descending", "all_equal", "alternating_high_low"].map(
+                      (p) => (
+                        <MenuItem key={p} value={p} disabled={p === benchmarkProfile}>
+                          {p === "random" && "Random (average-ish)"}
+                          {p === "sorted_ascending" && "Sorted ascending"}
+                          {p === "sorted_descending" && "Sorted descending"}
+                          {p === "all_equal" && "All equal"}
+                          {p === "alternating_high_low" && "Alternating high / low"}
+                        </MenuItem>
+                      )
+                    )}
+                  </Select>
+                </FormControl>
+              ) : null}
+              {compareEnabled && compareProfile === benchmarkProfile ? (
+                <Typography variant="caption" color="warning.main" sx={{ fontWeight: 700 }}>
+                  Choose a compare profile different from the primary run.
+                </Typography>
+              ) : null}
+              <Button
+                variant="contained"
+                color="primary"
+                className="analyse-cta"
+                fullWidth
+                onClick={handleAnalyseClick}
+                disabled={loading || (compareEnabled && compareProfile === benchmarkProfile)}
+                startIcon={<PlayArrowRounded />}
+                sx={{ borderRadius: 2, py: 1.25, fontWeight: 800 }}
+              >
+                Run analysis
+              </Button>
+              <Divider />
+              <Button
+                component={RouterLink}
+                to="/learning"
+                variant="outlined"
+                color="inherit"
+                fullWidth
+                startIcon={<MenuBookOutlined />}
+                sx={{ borderRadius: 2, fontWeight: 700, justifyContent: "flex-start" }}
+              >
+                Open Learning topics
+              </Button>
+              {!isAuthenticated ? (
+                <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.45 }}>
+                  Sign in to enable the <strong>History</strong> tab.
+                </Typography>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Box flex={1} minWidth={0}>
+            <Card sx={{ overflow: "hidden", height: "100%" }}>
+              <Box
+                sx={{
+                  px: 2,
+                  pt: 2,
+                  pb: 0.5,
+                  background: `linear-gradient(95deg, ${alpha(theme.palette.secondary.main, 0.08)}, transparent 55%)`,
+                }}
+              >
+                <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1} sx={{ mb: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 800, letterSpacing: "0.12em" }}>
+                    NOW RUNNING
+                  </Typography>
+                  <Chip size="small" label={language} sx={{ fontWeight: 800 }} />
+                </Stack>
+                <Typography variant="h5" sx={{ fontWeight: 800, letterSpacing: "-0.02em", mb: 1.5 }}>
+                  Analyzer workspace
+                </Typography>
+                <Tabs value={mainTab} onChange={handleMainTabChange} variant="fullWidth" sx={{ minHeight: 52 }}>
+                  <Tab icon={<CodeRounded sx={{ fontSize: 20 }} />} iconPosition="start" label="Source" value="source" />
+                  <Tab
+                    icon={<InsightsOutlined sx={{ fontSize: 20 }} />}
+                    iconPosition="start"
+                    label="Results"
+                    value="results"
+                  />
+                  <Tab
+                    icon={<HistoryRounded sx={{ fontSize: 20 }} />}
+                    iconPosition="start"
+                    label="History"
+                    value="history"
+                    disabled={!isAuthenticated}
+                  />
+                </Tabs>
+              </Box>
+              <CardContent sx={{ pt: 2.5 }}>
+                {mainTab === "source" ? (
+                  <CodeEditorArea language={language} code={code} onCodeChange={handleCodeChange} />
+                ) : null}
+                {mainTab === "results" ? (
+                  <Box>
+                    {loading ? (
+                      <LinearProgress sx={{ mb: 2, borderRadius: 2 }} color="secondary" />
+                    ) : null}
+                    <Output
+                      outputText={outputText}
+                      results={results}
+                      error={error}
+                      loading={loading}
+                      rawAnalysis={lastRawAnalysis}
+                      rawAnalysisCompare={lastRawAnalysisCompare}
+                      compareBenchmarkProfile={compareEnabled && lastRawAnalysisCompare ? compareProfile : null}
+                      analysisLanguage={language}
+                    />
+                  </Box>
+                ) : null}
+                {mainTab === "history" ? renderHistory() : null}
+              </CardContent>
+            </Card>
+          </Box>
+        </Stack>
+
+        <InfoSection language={language} limitations={limitations[language]} />
+      </Stack>
+    </Box>
   );
 }
 

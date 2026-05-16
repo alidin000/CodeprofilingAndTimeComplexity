@@ -1,0 +1,38 @@
+{
+  "tracks": [
+    {
+      "id": "sorting-core",
+      "title": "Sorting core",
+      "description": "Classic comparison sorts and complexity intuition.",
+      "lessonNames": [
+        "Insertion Sort",
+        "Selection Sort",
+        "Bubble Sort",
+        "Merge Sort",
+        "Quick Sort",
+        "Heap Sort"
+      ]
+    },
+    {
+      "id": "structures-week",
+      "title": "Structures week",
+      "description": "Linear and tree-shaped building blocks.",
+      "lessonNames": [
+        "Linked List",
+        "Stack",
+        "Queue",
+        "Priority Queue",
+        "Binary Search Tree (BST)",
+        "Heap",
+        "Trie",
+        "Hash Table"
+      ]
+    },
+    {
+      "id": "graphs-path",
+      "title": "Graphs path",
+      "description": "Representations and traversals.",
+      "lessonNames": ["Graph", "Breadth-First Search (BFS)", "Depth-First Search (DFS)", "Dijkstra's Algorithm"]
+    }
+  ]
+}

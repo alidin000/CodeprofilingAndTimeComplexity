@@ -1,22 +1,33 @@
-/* General Styles */
-body, html {
+/* Base: fonts from index.html; layout lives in App + MUI */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body,
+html {
   margin: 0;
   padding: 0;
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  min-height: 100%;
+  font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+html[data-theme="light"] body {
+  background-color: #e7e5e4;
+}
+
+html[data-theme="dark"] body {
+  background-color: #0c0a09;
+}
+
 .App {
-  display: flex;
-  flex-direction: column;
   min-height: 100vh;
 }
 
 header {
-  background-color: #3f51b5;
-  color: #fff;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -36,6 +47,8 @@ header {
 .header-right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 
 .logo-image {
@@ -56,19 +69,15 @@ li {
 
 .link-style {
   text-decoration: none;
-  color: #fff;
+  color: inherit;
 }
 
 .link-style:hover,
 .link-style.active {
-  color: #ff9800;
+  opacity: 0.85;
 }
 
-/* Footer Styles */
 footer {
-  background-color: #3f51b5;
-  color: #fff;
-  padding: 20px;
   margin-top: auto;
 }
 
@@ -81,26 +90,25 @@ footer {
 }
 
 .footer-content a {
-  color: #fff;
   text-decoration: none;
   margin-right: 10px;
 }
 
-/* CalculatorPage Styles */
+/* Legacy class hooks (Calculator / Learning) — tuned for dark via data-theme */
 .calculator-page {
   display: flex;
   flex-direction: column;
   padding: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  border-radius: 14px;
+  border: 1px solid rgba(91, 33, 182, 0.12);
 }
 
 .text-section {
-  padding: 10px;
-  background-color: #f2f2f2;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.55);
 }
 
-/* CodeEditor Styles */
 .code-editor-area {
   position: relative;
 }
@@ -112,26 +120,9 @@ footer {
   margin-bottom: 20px;
 }
 
-.analyse-button {
-  position: absolute;
-  bottom: 10px;
-  right: 10px;
-  padding: 10px 20px;
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-}
-
-.analyse-button:hover {
-  background-color: #0056b3;
-}
-
-/* LearningPage Styles */
 .learning-page {
   display: flex;
-  padding: 20px;
+  padding: 8px;
 }
 
 .left-panel {
@@ -144,9 +135,9 @@ footer {
 }
 
 .algorithm-topics-list {
-  background-color: #f0f0f0;
   padding: 10px;
-  border-radius: 5px;
+  border-radius: 12px;
+  background-color: rgba(255, 255, 255, 0.5);
 }
 
 .algorithm-topics-list button {
@@ -158,88 +149,47 @@ footer {
   background-color: transparent;
   border: none;
   cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s ease, transform 0.2s ease;
 }
 
 .algorithm-topics-list button:hover {
-  text-decoration: underline;
+  text-decoration: none;
+  transform: translateX(4px);
 }
 
-.tab-switcher, .switchers {
+.tab-switcher,
+.switchers {
   display: flex;
   margin-bottom: 20px;
+  gap: 8px;
 }
 
-.tab-button, .switcher-button {
+.tab-button,
+.switcher-button {
   flex: 1;
   background-color: transparent;
   border: none;
   cursor: pointer;
   outline: none;
   font-size: 16px;
-  padding: 5px 10px;
+  padding: 8px 12px;
   color: #333;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.tab-button.active, .switcher-button.active {
+.tab-button.active,
+.switcher-button.active {
   font-weight: bold;
-  background-color: #f0f0f0;
+  background-color: rgba(91, 33, 182, 0.12);
 }
 
-.tab-button:not(:last-child), .switcher-button:not(:last-child) {
-  margin-right: 10px;
+.tab-button:not(:last-child),
+.switcher-button:not(:last-child) {
+  margin-right: 0;
 }
 
-/* Login and Signup Page Styles */
-.wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-}
-
-.form {
-  background-color: #f9f9f9;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  width: 320px;
-}
-
-.form label {
-  display: block;
-  font-weight: bold;
-  margin-bottom: 5px;
-}
-
-.form input {
-  width: 100%;
-  padding: 10px;
-  margin-bottom: 15px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 10px;
-  background-color: #007bff;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.submit-btn:hover {
-  background-color: #0056b3;
-}
-
-.error {
-  color: red;
-  text-align: center;
-}
-
-/* Output Component Styles */
 .output-container {
   width: 100%;
   display: flex;
@@ -248,17 +198,17 @@ footer {
 }
 
 .output-card {
-  width: 90%;
+  width: 100%;
   max-width: 1000px;
   margin: 0 auto;
-  border: 1px solid #ddd;
+  border-radius: 14px;
 }
 
 .output-card pre {
-  background-color: #f5f5f5;
   padding: 15px;
-  border-radius: 4px;
+  border-radius: 10px;
   overflow: auto;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
 }
 
 .complexity-constant { background-color: #e0f7fa; }
@@ -280,5 +230,49 @@ footer {
 .user-icon {
   font-size: 24px;
   margin-left: 10px;
-  color: #fff;
+}
+
+/* Dark theme legacy surfaces */
+html[data-theme="dark"] .calculator-page {
+  border-color: rgba(196, 181, 253, 0.2);
+}
+
+html[data-theme="dark"] .text-section {
+  background-color: rgba(26, 20, 40, 0.75);
+  color: #f5f3ff;
+}
+
+html[data-theme="dark"] .algorithm-topics-list {
+  background-color: rgba(26, 20, 40, 0.65);
+}
+
+html[data-theme="dark"] .algorithm-topics-list button {
+  color: #f5f3ff;
+}
+
+html[data-theme="dark"] .tab-button,
+html[data-theme="dark"] .switcher-button {
+  color: #ddd6fe;
+}
+
+html[data-theme="dark"] .tab-button.active,
+html[data-theme="dark"] .switcher-button.active {
+  background-color: rgba(196, 181, 253, 0.15);
+  color: #faf5ff;
+}
+
+html[data-theme="dark"] .output-card pre {
+  background-color: rgba(10, 6, 18, 0.85);
+  color: #e9d5ff;
+}
+
+html[data-theme="dark"] .form {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+}
+
+html[data-theme="dark"] .form input {
+  background-color: #0d1117;
+  color: #e6edf3;
+  border-color: #30363d;
 }

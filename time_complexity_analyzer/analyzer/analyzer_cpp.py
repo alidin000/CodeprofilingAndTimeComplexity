@@ -1,17 +1,22 @@
+import os
 import re
 import subprocess
-import os
 
-def ensure_directory_exists(path):
-    if not os.path.exists(path):
-        os.makedirs(path)
+from analyzer.benchmark_profiles import CPP_GENERATE_METHOD, normalize_benchmark_profile
+from analyzer.measurement_config import WARMUP_RUNS
 
-def instrument_cpp_function(user_function, call_template, num_inputs, size_array):
+
+def instrument_cpp_function(
+    user_function, call_template, num_inputs, size_array, benchmark_profile="random"
+):
     function_name = re.search(r"\b(?:\w+\s+)+(\w+)\s*\(", user_function).group(1)
+    call_line = call_template.replace("$$size$$", "input")
+    profile = normalize_benchmark_profile(benchmark_profile)
+    cpp_generate = CPP_GENERATE_METHOD[profile]
+
     cpp_prolog = """
-#include <iostream>
-#include <fstream>
 #include <chrono>
+#include <fstream>
 #include <map>
 #include <vector>
 #include <cstdlib>
@@ -19,80 +24,41 @@ def instrument_cpp_function(user_function, call_template, num_inputs, size_array
 #include <algorithm>
 #include <cmath>
 
-using Clock = std::chrono::steady_clock;
-
 class InstrumentedPrototype {
 public:
-    std::map<int, Clock::time_point> lineInfoLastStart;
     std::map<int, long long> lineInfoTotal;
-
-    InstrumentedPrototype() {
-        // Constructor
-    }
-
-    Clock::time_point getLastLineInfo(int lineNumber) {
-        auto it = lineInfoLastStart.find(lineNumber);
-        if (it != lineInfoLastStart.end()) {
-            return it->second;
-        } else if (lineNumber > 1) {
-            return getLastLineInfo(lineNumber - 1);
-        }
-        return Clock::now();
-    }
-    """
+"""
 
     cpp_epilog = f"""
-    std::vector<int> generateInput(int size) {{
-        std::vector<int> input(size);
-        srand(time(0)); 
-
-        for (int i = 0; i < size; ++i) {{
-            input[i] = rand() % 1000;
-        }}
-
-        return input;
-    }}
-
-    void execute(int size) {{
-        InstrumentedPrototype p;
-
-        int num_iterations = 10;
-        long long totalExecTime = 0;
-
-        for (int iter = 0; iter < num_iterations; ++iter) {{
-            std::vector<int> input = generateInput(size);
-            auto startTime = Clock::now();
-            {call_template.replace("$$size$$", "input")}
-            auto endTime = Clock::now();
-            totalExecTime += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count();
-        }}
-
-        long long avgExecTime = totalExecTime / num_iterations;
-
-        std::ofstream outFile("output_cpp_{size_array}.txt", std::ios_base::app);
-        outFile << "test case = " << size << "\\n";
-        outFile << "Average Function execution time: " << avgExecTime << " ns\\n";
-        outFile << "{{";
-        bool isFirst = true;
-        for (auto it = p.lineInfoTotal.begin(); it != p.lineInfoTotal.end(); ++it) {{
-            if (!isFirst) outFile << ", ";
-            isFirst = false;
-            outFile << it->first << "=" << it->second;
-        }}
-        outFile << "}}\\n";
-        outFile.close();
-    }}
-
-    void run() {{
-        for (int size = 10; size <= {num_inputs}; size += 10) {{
-            execute(size);
-        }}
-    }}
+{cpp_generate}
 }};
 
 int main() {{
-    InstrumentedPrototype prototype;
-    prototype.run();
+    std::ofstream outFile("output_cpp_{size_array}.txt", std::ios::trunc);
+    for (int w = 0; w < {WARMUP_RUNS}; ++w) {{
+        InstrumentedPrototype warm;
+        std::vector<int> input = warm.generateInput({size_array});
+        {call_line.replace("p.", "warm.")}
+    }}
+    for (int tc = 1; tc <= {num_inputs}; ++tc) {{
+        InstrumentedPrototype p;
+        std::vector<int> input = p.generateInput({size_array});
+        auto t0 = std::chrono::steady_clock::now();
+        {call_line}
+        auto t1 = std::chrono::steady_clock::now();
+        long long execNs = std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count();
+        outFile << "test case = " << tc << "\\n";
+        outFile << "Function execution time: " << execNs << " ns\\n";
+        outFile << "{{";
+        bool isFirst = true;
+        for (const auto& kv : p.lineInfoTotal) {{
+            if (!isFirst) outFile << ", ";
+            isFirst = false;
+            outFile << kv.first << "=" << kv.second;
+        }}
+        outFile << "}}\\n";
+    }}
+    outFile.close();
     return 0;
 }}
 """
@@ -104,35 +70,31 @@ int main() {{
     for i, line in enumerate(lines[1:], start=2):
         trimmed_line = line.strip()
         if not trimmed_line or trimmed_line == '}' or i == last_line_index:
-            if "return" in trimmed_line or trimmed_line == '}':
-                instrumented_line = line
-            else:
-                instrumented_line = (
-                    f"this->lineInfoLastStart[{i}] = Clock::now();\n"
-                    + line + f"\nthis->lineInfoTotal[{i}] += std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - this->getLastLineInfo({i})).count();"
-                )
+            instrumented_line = line
+        elif "return" in trimmed_line:
+            instrumented_line = line
         else:
-            instrumented_line = (
-                f"this->lineInfoLastStart[{i}] = Clock::now();\n"
-                + line + "\n"
-                + f"this->lineInfoTotal[{i}] += std::chrono::duration_cast<std::chrono::nanoseconds>(Clock::now() - this->getLastLineInfo({i})).count();"
-            )
+            instrumented_line = f"this->lineInfoTotal[{i}]++;\n" + line
 
         instrumented_user_function += "\n" + instrumented_line
 
-    full_cpp_code = cpp_prolog + instrumented_user_function + cpp_epilog
-    return full_cpp_code
+    return cpp_prolog + instrumented_user_function + cpp_epilog
 
-def write_and_compile_cpp(cpp_code):
-    cpp_file_dir = os.path.dirname(__file__)
-    cpp_file_path = os.path.join(cpp_file_dir, "InstrumentedPrototype.cpp")
 
-    with open(cpp_file_path, "w") as cpp_file:
+def write_and_compile_cpp(cpp_code, work_dir):
+    cpp_file_path = os.path.join(work_dir, "InstrumentedPrototype.cpp")
+    binary_path = os.path.join(work_dir, "InstrumentedPrototype")
+
+    with open(cpp_file_path, "w", encoding="utf-8") as cpp_file:
         cpp_file.write(cpp_code)
-    
-    subprocess.run(["g++", "-std=c++14", cpp_file_path, "-o", os.path.join(cpp_file_dir, "InstrumentedPrototype")], check=True)
 
-def run_cpp_program():
-    cpp_file_dir = os.path.dirname(__file__)
-    command = [os.path.join(cpp_file_dir, "InstrumentedPrototype")]
-    subprocess.run(command, check=True)
+    subprocess.run(
+        ["g++", "-std=c++14", cpp_file_path, "-o", binary_path],
+        check=True,
+        cwd=work_dir,
+    )
+
+
+def run_cpp_program(work_dir):
+    binary_path = os.path.join(work_dir, "InstrumentedPrototype")
+    subprocess.run([binary_path], check=True, cwd=work_dir)

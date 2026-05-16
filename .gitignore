@@ -24,6 +24,7 @@ node_modules/
 .DS_Store
 *.env
 venv
+.venv
 
 # Excluding the files that are generated for time complexity analysis
 *Prototype*

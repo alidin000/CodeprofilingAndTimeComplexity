@@ -1,5 +1,7 @@
 import os
+import shutil
 import subprocess
+import tempfile
 from django.test import TestCase
 from django.urls import reverse
 from api.models import Code, UserProfile
@@ -161,7 +163,8 @@ class APITests(TestCase):
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('successfully logged in', response.data)
+        self.assertIn('access', response.data)
+        self.assertIn('refresh', response.data)
 
     def test_user_login_invalid_credentials(self):
         url = reverse('login')
@@ -171,7 +174,11 @@ class APITests(TestCase):
         }
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertIn('Invalid username or password', response.data)
+        payload = response.data
+        if isinstance(payload, dict) and 'detail' in payload:
+            self.assertIn('Invalid username or password', str(payload['detail']))
+        else:
+            self.assertIn('Invalid username or password', payload)
 
     def test_user_login_missing_credentials(self):
         url = reverse('login')
@@ -292,19 +299,20 @@ class InstrumentedCodeTests(TestCase):
 def example(arr):
     return sum(arr)
 """
-        output_path = os.path.join(os.getcwd(), 'analyzer', 'output_python_50.txt')
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        work_dir = tempfile.mkdtemp(prefix="tca_test_py_")
+        try:
+            output_path = os.path.join(work_dir, "output_python_50.txt")
+            run_instrumented_python_code(user_code, 50, 50, work_dir)
 
-        run_instrumented_python_code(user_code, 50, 50)
-        
-        self.assertTrue(os.path.exists(output_path))
+            self.assertTrue(os.path.exists(output_path))
 
-        with open(output_path, 'r') as file:
-            content = file.read()
-            self.assertIn('Function execution time:', content)
-            self.assertIn('{', content)
-            self.assertIn('}', content)
+            with open(output_path, 'r') as file:
+                content = file.read()
+                self.assertIn('Function execution time:', content)
+                self.assertIn('{', content)
+                self.assertIn('}', content)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_instrument_java_function(self):
         user_code = """
@@ -316,28 +324,30 @@ public int example(int[] arr) {
     return sum;
 }
 """
-        output_path = os.path.join(os.getcwd(), 'output_java_50.txt')
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        work_dir = tempfile.mkdtemp(prefix="tca_test_java_")
+        try:
+            output_path = os.path.join(work_dir, "output_java_50.txt")
+            java_code = instrument_java_function(user_code, "p.example(input);", 50, 50)
+            write_and_compile_java(java_code, work_dir)
+            java_file_path = os.path.join(work_dir, "InstrumentedPrototype.java")
+            self.assertTrue(os.path.exists(java_file_path))
 
-        java_code = instrument_java_function(user_code, "p.example(input);", 50, output_path, 50)
-        java_file_path = os.path.join(os.getcwd(), 'analyzer', 'InstrumentedPrototype.java')
-        write_and_compile_java(java_code)
-        
-        self.assertTrue(os.path.exists(java_file_path))
-        
-        compile_result = subprocess.run(["javac", java_file_path], capture_output=True, text=True)
-        self.assertEqual(compile_result.returncode, 0)
-        
-        run_java_program()
-        
-        self.assertTrue(os.path.exists(output_path))
+            compile_result = subprocess.run(
+                ["javac", java_file_path], capture_output=True, text=True, cwd=work_dir
+            )
+            self.assertEqual(compile_result.returncode, 0)
 
-        with open(output_path, 'r') as file:
-            content = file.read()
-            self.assertIn('Function execution time:', content)
-            self.assertIn('{', content)
-            self.assertIn('}', content)
+            run_java_program(work_dir)
+
+            self.assertTrue(os.path.exists(output_path))
+
+            with open(output_path, 'r') as file:
+                content = file.read()
+                self.assertIn('Function execution time:', content)
+                self.assertIn('{', content)
+                self.assertIn('}', content)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_instrument_cpp_function(self):
         user_code = """
@@ -348,28 +358,40 @@ void example(std::vector<int>& arr) {
     }
 }
 """
-        output_path = os.path.join(os.getcwd(), 'output_cpp_50.txt')
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        work_dir = tempfile.mkdtemp(prefix="tca_test_cpp_")
+        try:
+            output_path = os.path.join(work_dir, "output_cpp_50.txt")
+            cpp_code = instrument_cpp_function(user_code, "p.example($$size$$);", 50, 50)
+            cpp_file_path = os.path.join(work_dir, "InstrumentedPrototype.cpp")
+            write_and_compile_cpp(cpp_code, work_dir)
 
-        cpp_code = instrument_cpp_function(user_code, "p.example($$size$$);", 50, 50)
-        cpp_file_path = os.path.join(os.getcwd(),'analyzer',  'InstrumentedPrototype.cpp')
-        write_and_compile_cpp(cpp_code)
-        
-        self.assertTrue(os.path.exists(cpp_file_path))
-        
-        compile_result = subprocess.run(["g++", "-std=c++14", cpp_file_path, "-o", os.path.join(os.getcwd(), "InstrumentedPrototype")], capture_output=True, text=True)
-        self.assertEqual(compile_result.returncode, 0)
-        
-        run_cpp_program()
-        
-        self.assertTrue(os.path.exists(output_path))
+            self.assertTrue(os.path.exists(cpp_file_path))
 
-        with open(output_path, 'r') as file:
-            content = file.read()
-            self.assertIn('Function execution time:', content)
-            self.assertIn('{', content)
-            self.assertIn('}', content)
+            compile_result = subprocess.run(
+                [
+                    "g++",
+                    "-std=c++14",
+                    cpp_file_path,
+                    "-o",
+                    os.path.join(work_dir, "InstrumentedPrototype"),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=work_dir,
+            )
+            self.assertEqual(compile_result.returncode, 0)
+
+            run_cpp_program(work_dir)
+
+            self.assertTrue(os.path.exists(output_path))
+
+            with open(output_path, 'r') as file:
+                content = file.read()
+                self.assertIn('Function execution time:', content)
+                self.assertIn('{', content)
+                self.assertIn('}', content)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_instrument_python_function_complex(self):
         user_code = """
@@ -398,19 +420,20 @@ def merge_sort(arr):
             j += 1
             k += 1
 """
-        output_path = os.path.join(os.getcwd(), 'analyzer', 'output_python_50.txt')
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        work_dir = tempfile.mkdtemp(prefix="tca_test_py_c_")
+        try:
+            output_path = os.path.join(work_dir, "output_python_50.txt")
+            run_instrumented_python_code(user_code, 50, 50, work_dir)
 
-        run_instrumented_python_code(user_code, 50, 50)
-        
-        self.assertTrue(os.path.exists(output_path))
+            self.assertTrue(os.path.exists(output_path))
 
-        with open(output_path, 'r') as file:
-            content = file.read()
-            self.assertIn('Function execution time:', content)
-            self.assertIn('{', content)
-            self.assertIn('}', content)
+            with open(output_path, 'r') as file:
+                content = file.read()
+                self.assertIn('Function execution time:', content)
+                self.assertIn('{', content)
+                self.assertIn('}', content)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_instrument_java_function_complex(self):
         user_code = """
@@ -446,28 +469,30 @@ public int example(int[] arr) {
     return 0;
 }
 """
-        output_path = os.path.join(os.getcwd(), 'output_java_50.txt')
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        work_dir = tempfile.mkdtemp(prefix="tca_test_java_c_")
+        try:
+            output_path = os.path.join(work_dir, "output_java_50.txt")
+            java_code = instrument_java_function(user_code, "p.example(input);", 50, 50)
+            write_and_compile_java(java_code, work_dir)
+            java_file_path = os.path.join(work_dir, "InstrumentedPrototype.java")
+            self.assertTrue(os.path.exists(java_file_path))
 
-        java_code = instrument_java_function(user_code, "p.example(input);", 50, output_path, 50)
-        java_file_path = os.path.join(os.getcwd(),'analyzer', 'InstrumentedPrototype.java')
-        write_and_compile_java(java_code)
-        
-        self.assertTrue(os.path.exists(java_file_path))
-        
-        compile_result = subprocess.run(["javac", java_file_path], capture_output=True, text=True)
-        self.assertEqual(compile_result.returncode, 0)
-        
-        run_java_program()
-        
-        self.assertTrue(os.path.exists(output_path))
+            compile_result = subprocess.run(
+                ["javac", java_file_path], capture_output=True, text=True, cwd=work_dir
+            )
+            self.assertEqual(compile_result.returncode, 0)
 
-        with open(output_path, 'r') as file:
-            content = file.read()
-            self.assertIn('Function execution time:', content)
-            self.assertIn('{', content)
-            self.assertIn('}', content)
+            run_java_program(work_dir)
+
+            self.assertTrue(os.path.exists(output_path))
+
+            with open(output_path, 'r') as file:
+                content = file.read()
+                self.assertIn('Function execution time:', content)
+                self.assertIn('{', content)
+                self.assertIn('}', content)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
 
     def test_instrument_cpp_function_complex(self):
         user_code = """
@@ -499,25 +524,37 @@ void example(std::vector<int>& arr) {
     }
 }
 """
-        output_path = os.path.join(os.getcwd(), 'output_cpp_50.txt')
-        if os.path.exists(output_path):
-            os.remove(output_path)
+        work_dir = tempfile.mkdtemp(prefix="tca_test_cpp_c_")
+        try:
+            output_path = os.path.join(work_dir, "output_cpp_50.txt")
+            cpp_code = instrument_cpp_function(user_code, "p.example($$size$$);", 50, 50)
+            cpp_file_path = os.path.join(work_dir, "InstrumentedPrototype.cpp")
+            write_and_compile_cpp(cpp_code, work_dir)
 
-        cpp_code = instrument_cpp_function(user_code, "p.example($$size$$);", 50, 50)
-        cpp_file_path = os.path.join(os.getcwd(), 'analyzer', 'InstrumentedPrototype.cpp')
-        write_and_compile_cpp(cpp_code)
-        
-        self.assertTrue(os.path.exists(cpp_file_path))
-        
-        compile_result = subprocess.run(["g++", "-std=c++14", cpp_file_path, "-o", os.path.join(os.getcwd(), "InstrumentedPrototype")], capture_output=True, text=True)
-        self.assertEqual(compile_result.returncode, 0)
-        
-        run_cpp_program()
-        
-        self.assertTrue(os.path.exists(output_path))
+            self.assertTrue(os.path.exists(cpp_file_path))
 
-        with open(output_path, 'r') as file:
-            content = file.read()
-            self.assertIn('Function execution time:', content)
-            self.assertIn('{', content)
-            self.assertIn('}', content)
+            compile_result = subprocess.run(
+                [
+                    "g++",
+                    "-std=c++14",
+                    cpp_file_path,
+                    "-o",
+                    os.path.join(work_dir, "InstrumentedPrototype"),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=work_dir,
+            )
+            self.assertEqual(compile_result.returncode, 0)
+
+            run_cpp_program(work_dir)
+
+            self.assertTrue(os.path.exists(output_path))
+
+            with open(output_path, 'r') as file:
+                content = file.read()
+                self.assertIn('Function execution time:', content)
+                self.assertIn('{', content)
+                self.assertIn('}', content)
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)

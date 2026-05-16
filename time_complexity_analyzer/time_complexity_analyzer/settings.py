@@ -28,6 +28,12 @@ SECRET_KEY = os.environ.get(
 
 DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 'yes')
 
+# When True, POST /api/analyse-code/ does not require login (local calculator UX).
+# On production, set TCA_ALLOW_ANONYMOUS_ANALYSIS=false (and keep DEBUG=false).
+TCA_ALLOW_ANONYMOUS_ANALYSIS = os.environ.get(
+    'TCA_ALLOW_ANONYMOUS_ANALYSIS', 'true'
+).lower() in ('true', '1', 'yes')
+
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 ALLOWED_HOSTS += ['.onrender.com']
 

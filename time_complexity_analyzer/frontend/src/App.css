@@ -1,38 +1,109 @@
-.App {
-  text-align: center;
-}
-
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+/* Animated mesh + grain shell (theme toggles html[data-theme]) */
+.app-shell {
+  position: relative;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  isolation: isolate;
 }
 
-.App-link {
-  color: #61dafb;
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 85% 55% at 15% -25%, rgba(167, 139, 250, 0.32), transparent 58%),
+    radial-gradient(ellipse 55% 45% at 100% 5%, rgba(252, 211, 77, 0.22), transparent 52%),
+    radial-gradient(ellipse 50% 55% at 75% 105%, rgba(91, 33, 182, 0.14), transparent 55%);
+  animation: mesh-shift 18s ease-in-out infinite alternate;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+html[data-theme="dark"] .app-shell::before {
+  background:
+    radial-gradient(ellipse 75% 50% at 12% -8%, rgba(167, 139, 250, 0.16), transparent 58%),
+    radial-gradient(ellipse 50% 42% at 100% 12%, rgba(252, 211, 77, 0.1), transparent 50%),
+    radial-gradient(ellipse 42% 50% at 72% 108%, rgba(139, 92, 246, 0.12), transparent 52%);
+  animation-duration: 22s;
+}
+
+.app-shell::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+.app-shell-inner {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes mesh-shift {
+  0% {
+    transform: translate(0, 0) scale(1);
   }
-  to {
-    transform: rotate(360deg);
+  100% {
+    transform: translate(-2%, 2%) scale(1.03);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-shell::before {
+    animation: none;
+  }
+}
+
+/* Logo hover pulse */
+.logo-hit {
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.logo-hit:hover {
+  transform: scale(1.06) rotate(-2deg);
+}
+
+/* Primary CTA shimmer on hover */
+@keyframes btn-shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.analyse-cta {
+  position: relative;
+  overflow: hidden;
+}
+
+.analyse-cta:not(:disabled)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.18) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.analyse-cta:not(:disabled):hover::after {
+  opacity: 1;
+  animation: btn-shimmer 1.2s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .analyse-cta:not(:disabled):hover::after {
+    animation: none;
+    opacity: 0;
   }
 }
