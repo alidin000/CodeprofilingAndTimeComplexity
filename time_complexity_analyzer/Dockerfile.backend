@@ -18,4 +18,6 @@ RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
 
-CMD ["bash", "-c", "python manage.py migrate && gunicorn time_complexity_analyzer.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 300"]
+# Single worker: async job state lives in LocMemCache (not shared across workers).
+# Use Redis cache + multiple workers if you scale horizontally.
+CMD ["bash", "-c", "python manage.py migrate && gunicorn time_complexity_analyzer.wsgi:application --bind 0.0.0.0:8000 --workers 1 --timeout 300"]

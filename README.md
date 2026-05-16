@@ -23,6 +23,7 @@ The UI calls Django under **`/api/...`**. Those routes exist on the **API** serv
 1. On the **static site** build, set **`REACT_APP_API_URL`** to your API’s public origin, e.g. `https://your-time-complexity-api.onrender.com` (no `/api` suffix). See `time_complexity_analyzer/frontend/.env.production.example`.
 2. **Rebuild** the static site so Create React App inlines the variable (build-time only).
 3. Keep the **web/API** service running.
+4. **Async analysis jobs** store state in Django’s **LocMem cache**, which is **not shared between Gunicorn workers**. This repo’s `Dockerfile.backend` uses **`--workers 1`** so polling `/api/analyse-code/async/<id>/` does not randomly 404. If you raise worker count, use **Redis** (or another shared cache) as `CACHES['default']` instead of `LocMemCache`.
 
 If `REACT_APP_API_URL` is missing, production builds default the API base to the **static site’s origin**; `POST /api/analyse-code/...` then hits the CDN and often returns **404**. You can also set `window.__TCA_API_BASE__` before the app bundle loads (see `frontend/src/components/Axios.js`).
 

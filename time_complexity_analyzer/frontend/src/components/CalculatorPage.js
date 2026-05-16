@@ -344,9 +344,16 @@ function CalculatorPage() {
           "Sign in or create an account to run analysis. If you self-host the API, set TCA_ALLOW_ANONYMOUS_ANALYSIS=true (default) or DEBUG=true, then restart Django."
         );
       } else if (err.response?.status === 404) {
-        setError(
-          "API returned 404 (not found). On split hosting (e.g. Render static site + separate API), set REACT_APP_API_URL to your Django base URL when building the frontend (example: https://your-api.onrender.com with no trailing /api), redeploy the static site, and confirm the API service is running."
-        );
+        const detail = err.response?.data?.detail;
+        if (typeof detail === "string" && /unknown or expired job/i.test(detail)) {
+          setError(
+            "The analysis job disappeared immediately after it started. The API uses in-memory cache for job state, which is not shared across multiple Gunicorn workers. Redeploy the API with a single worker (this repo’s Dockerfile uses --workers 1), or configure Redis as Django’s cache backend."
+          );
+        } else {
+          setError(
+            "API returned 404 (not found). If the UI is on a different host than Django, set REACT_APP_API_URL to your API origin when building the static site (e.g. https://your-api.onrender.com with no trailing /api), clear build cache, redeploy the static site, and confirm the API URL matches your live web service."
+          );
+        }
       } else {
         setError(err.message || "Can't calculate it. Please check your code and try again.");
       }

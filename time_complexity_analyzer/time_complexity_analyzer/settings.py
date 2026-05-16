@@ -126,7 +126,9 @@ DATABASES = {
     }
 }
 
-# In-memory cache for async analysis job state (single-process; use Redis for multi-worker).
+# In-memory cache for async analysis job state. LocMem is **per Gunicorn process** — with multiple
+# workers, POST /async/start/ and GET /async/<id>/ can hit different workers and polling returns 404.
+# Run Gunicorn with --workers 1 (see Dockerfile.backend), or switch this default cache to Redis.
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
